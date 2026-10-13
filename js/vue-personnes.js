@@ -86,6 +86,10 @@
       champ('Remarque', '<input type="text" id="p-remarque" value="' + U.esc(p.remarque) + '" style="width:320px">') +
       '</div>' +
       (p.actif ? '' : '<p class="aide">Personne archivée : elle n\'apparaît plus dans les rapports.</p>') +
+      (DB.vehiculesDe(p.id).length ? '<p class="vehicules-personne">Véhicule : ' + DB.vehiculesDe(p.id).map(function (v) {
+        return '<a href="#/vehicule/' + encodeURIComponent(v.id) + '">' + U.esc(v.immatriculation || '(sans immatriculation)') +
+          (v.type ? ' – ' + U.esc(v.type) : '') + '</a>';
+      }).join(', ') + '</p>' : '') +
       '</div>' +
 
       (aerEscorte.length ? '<div class="carte"><h2 style="margin-top:0">Escorteur</h2><div class="grille-champs">' +

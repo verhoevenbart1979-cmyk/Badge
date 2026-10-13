@@ -60,11 +60,12 @@ var Statut = (function () {
    *           demande       : null ou { date, arrivee, retard },
    *           detail        : explication en clair }
    */
-  function calculer(doc, aujourdhui) {
+  function calculer(doc, aujourdhui, options) {
     aujourdhui = aujourdhui || U.aujourdhui();
+    options = options || {};
     var aer = doc.aeroportId ? DB.aeroport(doc.aeroportId) : null;
-    var delaiDemande = aer ? +aer.delaiDemande || 0 : 40;
-    var delaiAct = delaiActivite(aer, doc.typeId);
+    var delaiDemande = options.delaiDemande != null ? +options.delaiDemande : aer ? +aer.delaiDemande || 0 : 40;
+    var delaiAct = options.sansActivite ? Infinity : delaiActivite(aer, doc.typeId);
     var infini = delaiAct === Infinity;
 
     var r = { joursValidite: null, joursActifs: null, finActivite: null, detail: '', demande: null, valide: false, actif: false };
@@ -127,6 +128,14 @@ var Statut = (function () {
     return res;
   }
 
+  /* Badge véhicule : pas de notion d'activité, délai de demande propre aux véhicules. */
+  function calculerVehicule(badge, aeroport, aujourdhui) {
+    var s = calculer(Object.assign({ aeroportId: aeroport.id }, badge), aujourdhui,
+      { delaiDemande: aeroport.delaiDemandeVehicule, sansActivite: true });
+    if (s.code === 'valide') s.libelle = 'Valide';
+    return s;
+  }
+
   /* Le meilleur document d'une liste (statut le plus favorable, puis expiration la plus lointaine). */
   function meilleur(docs, aujourdhui) {
     var best = null;
@@ -157,7 +166,7 @@ var Statut = (function () {
   }
 
   return {
-    DEF: DEF, ORDRE: ORDRE, INFINI: INFINI, calculer: calculer, meilleur: meilleur, icone: icone,
+    DEF: DEF, ORDRE: ORDRE, INFINI: INFINI, calculer: calculer, calculerVehicule: calculerVehicule, meilleur: meilleur, icone: icone,
     pastille: pastille, legende: legende, delaiActivite: delaiActivite
   };
 })();

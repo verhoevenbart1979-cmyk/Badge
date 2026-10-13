@@ -12,7 +12,7 @@ var App = (function () {
     if (!DB.data) nom = 'fichier';
     var vue = vues[nom] || vues.personnes;
     document.querySelectorAll('#menu a').forEach(function (a) {
-      a.classList.toggle('actif', a.getAttribute('data-menu') === (nom === 'personne' ? 'personnes' : nom));
+      a.classList.toggle('actif', a.getAttribute('data-menu') === ({ personne: 'personnes', vehicule: 'vehicules' }[nom] || nom));
     });
     // une vue peut préparer l'impression ; on oublie celle de la vue précédente
     window.onbeforeprint = null;

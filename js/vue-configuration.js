@@ -40,7 +40,9 @@
       '<table class="table-saisie"><thead><tr><th>Code</th><th>Nom</th>' +
       '<th class="num" title="Temps nécessaire pour obtenir un nouveau badge">Délai demande de badge (jours)</th>' +
       '<th class="num" title="Après combien de jours sans passage le badge n\'est plus actif (valeur par défaut pour tous les types)">Délai dernier passage (jours)</th>' +
-      '<th>Besoin escorteur</th><th>Colonnes dans la matrice</th><th>Remarque</th><th></th></tr></thead><tbody>' +
+      '<th>Besoin escorteur</th><th>Badges véhicules</th>' +
+      '<th class="num" title="Temps nécessaire pour obtenir un badge véhicule">Délai demande véhicule (jours)</th>' +
+      '<th>Colonnes dans la matrice</th><th>Remarque</th><th></th></tr></thead><tbody>' +
       (aeroports.length ? aeroports.map(function (a) {
         return '<tr data-liste="aeroports" data-id="' + U.esc(a.id) + '">' +
           '<td><input type="text" data-champ="code" value="' + U.esc(a.code) + '" style="width:70px;min-width:0"></td>' +
@@ -48,13 +50,15 @@
           '<td class="num"><input type="number" min="0" data-champ="delaiDemande" data-nombre value="' + U.esc(a.delaiDemande) + '"></td>' +
           '<td class="num"><input type="number" min="0" data-champ="delaiPassage" data-nombre value="' + U.esc(a.delaiPassage) + '"></td>' +
           '<td style="text-align:center"><input type="checkbox" data-champ="besoinEscorteur"' + (a.besoinEscorteur ? ' checked' : '') + '></td>' +
+          '<td style="text-align:center"><input type="checkbox" data-champ="badgesVehicules"' + (a.badgesVehicules ? ' checked' : '') + '></td>' +
+          '<td class="num"><input type="number" min="0" data-champ="delaiDemandeVehicule" data-nombre value="' + U.esc(a.delaiDemandeVehicule) + '"></td>' +
           '<td><div class="cases">' + d.typesBadge.map(function (t) {
             return '<label><input type="checkbox" data-matrice="' + U.esc(t.id) + '"' +
               (a.typesMatrice.indexOf(t.id) >= 0 ? ' checked' : '') + '> ' + U.esc(t.nom) + '</label>';
           }).join('') + '</div></td>' +
           '<td><input type="text" data-champ="remarque" value="' + U.esc(a.remarque) + '"></td>' +
           '<td><button class="icone" data-suppr title="Supprimer">🗑</button></td></tr>';
-      }).join('') : '<tr><td colspan="8" class="vide">Aucun aéroport. Ajoutez-en un pour commencer.</td></tr>') +
+      }).join('') : '<tr><td colspan="10" class="vide">Aucun aéroport. Ajoutez-en un pour commencer.</td></tr>') +
       '</tbody></table>' +
       '<p class="aide">« Colonnes dans la matrice » : les types de badge affichés sous cet aéroport dans le rapport matrice.</p></div>' +
 
@@ -144,14 +148,16 @@
       if (ajout === 'aeroport') {
         var dt = DB.typeParDefaut();
         d.aeroports.push({ id: U.uid('a'), code: '', nom: 'Nouvel aéroport', delaiDemande: 40, delaiPassage: 100,
-          besoinEscorteur: false, typesMatrice: dt ? [dt.id] : [], delaisActivite: {}, remarque: '' });
+          besoinEscorteur: false, badgesVehicules: false, delaiDemandeVehicule: 90,
+          typesMatrice: dt ? [dt.id] : [], delaisActivite: {}, remarque: '' });
       } else if (ajout === 'type') {
         d.typesBadge.push({ id: U.uid('t'), nom: 'Nouveau type', parDefaut: !d.typesBadge.length });
       } else if (ajout === 'societe') {
         d.societes.push({ id: U.uid('s'), nom: 'Nouvelle société' });
       } else if (t.hasAttribute('data-suppr')) {
         var el2 = element(t.closest('tr[data-liste]')), o = el2.obj, n = 0;
-        if (el2.liste === 'aeroports') n = compter(d.documents, 'aeroportId', o.id);
+        if (el2.liste === 'aeroports') n = compter(d.documents, 'aeroportId', o.id) +
+          d.vehicules.filter(function (v) { return v.badges[o.id]; }).length;
         if (el2.liste === 'typesBadge') n = compter(d.documents, 'typeId', o.id);
         if (el2.liste === 'societes') n = compter(d.personnes, 'societeId', o.id);
         if (n) { U.toast('Impossible : encore utilisé par ' + n + ' élément(s).', true); return; }

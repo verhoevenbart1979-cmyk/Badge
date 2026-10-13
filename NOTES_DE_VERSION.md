@@ -1,5 +1,20 @@
 # Notes de version — Suivi des badges
 
+## Version 4
+
+### Nouveauté : les véhicules
+
+- Nouveau menu **Véhicules**, séparé des personnes.
+- Pour chaque véhicule : type, immatriculation, chauffeur (lié à une personne, ou « non attribué ») et case « Véhicule actif ».
+  Un véhicule vendu (décoché) n'apparaît plus dans les tableaux.
+- Un badge par aéroport : numéro et date de validité.
+- Statuts comme pour les personnes, sans « inactif » : valide, à renouveler, demande lancée, !!! Attention !!!, expiré.
+- Délai de demande propre aux véhicules, par aéroport (*Configuration* : « Badges véhicules » et « Délai demande véhicule »).
+  Par défaut : Brussels Airport 62 jours, Charleroi, Liège et Luxembourg 90 jours.
+- Vue d'ensemble avec filtres (aéroport, statut, « à traiter »), impression et export Excel.
+- La fiche d'une personne indique son véhicule.
+- Import des véhicules de l'ancien fichier Excel (menu Véhicules → Importer…).
+
 ## Version 3.2
 
 ### Nouveauté

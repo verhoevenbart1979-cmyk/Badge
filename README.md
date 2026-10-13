@@ -29,6 +29,7 @@ Elke wijziging wordt meteen in `badges.json` bewaard (rechtsboven: « enregistr�
 | Scherm | Inhoud |
 |---|---|
 | **Personnes** | Zoeken, filteren op firma, klikken opent de fiche (naam, voornaam, firma, escorteur, badges & permits) |
+| **Véhicules** | Wagens: type, immatriculatie, chauffeur, actief; per luchthaven één badge (nummer + geldigheid), met eigen aanvraagtermijn |
 | **Rapports → Par aéroport** | Geldig & actief / geldig maar niet actief / ongeldig / geen badge, met resterende actieve dagen |
 | **Rapports → Par personne** | Status van alle documenten van één persoon |
 | **Rapports → Matrice** | Personen × (luchthaven → types); kolommen en namen uitvinken = niet afgedrukt/geëxporteerd |
@@ -60,3 +61,5 @@ de luchthaven, `inf` = nooit inactief). *Jours actifs restants* = laatste passag
 - Naast het slot is er een tweede beveiliging: wordt `badges.json` toch buiten de applicatie gewijzigd, dan verschijnt een waarschuwing i.p.v. stil te overschrijven.
 - `outils/import_excel.py`: eenmalige migratie van het oude Excel-bestand
   (`python3 outils/import_excel.py suivi.xlsx badges.json rapport.md`, vereist `openpyxl`).
+- `outils/import_vehicules.py`: zet het tabblad *Véhicules* om naar `vehicules.json`, dat je in de applicatie
+  importeert via *Véhicules → Importer…* (chauffeurs worden op naam gekoppeld).

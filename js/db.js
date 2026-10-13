@@ -129,10 +129,14 @@ var DB = (function () {
       throw new Error("Ce fichier n'est pas une base de données de badges valide.");
     }
     d.meta = d.meta || {};
-    ['aeroports', 'typesBadge', 'societes', 'personnes', 'documents'].forEach(function (k) {
+    ['aeroports', 'typesBadge', 'societes', 'personnes', 'documents', 'vehicules'].forEach(function (k) {
       if (!Array.isArray(d[k])) d[k] = [];
     });
+    // aéroports où les véhicules ont un badge (fichier Excel d'origine : BAC, EBCI, EBLG, LUX)
+    var AER_VEHICULES = { a_bac: 62, a_ebci: 90, a_eblg: 90, a_lux: 90 };
     d.aeroports.forEach(function (a) {
+      if (a.badgesVehicules == null) a.badgesVehicules = a.id in AER_VEHICULES;
+      if (a.delaiDemandeVehicule == null) a.delaiDemandeVehicule = AER_VEHICULES[a.id] || a.delaiDemande || 90;
       if (a.delaiDemande == null) a.delaiDemande = 40;
       if (a.delaiPassage == null) a.delaiPassage = 100;
       a.besoinEscorteur = !!a.besoinEscorteur;
@@ -156,6 +160,12 @@ var DB = (function () {
       if (p.remarque == null) p.remarque = '';
     });
     d.documents.forEach(function (doc) { if (doc.dateDemande === undefined) doc.dateDemande = null; });
+    d.vehicules.forEach(function (v) {
+      if (v.actif == null) v.actif = true;
+      if (!v.badges || typeof v.badges !== 'object') v.badges = {};
+      if (v.chauffeurId === undefined) v.chauffeurId = null;
+      ['type', 'immatriculation', 'remarque'].forEach(function (k) { if (v[k] == null) v[k] = ''; });
+    });
     var p = d.parametres = d.parametres || {};
     if (p.margeRenouvellement == null) p.margeRenouvellement = 30;
     if (p.societeDefaut === undefined) {
@@ -470,6 +480,13 @@ var DB = (function () {
     type: function (id) { return parId(data.typesBadge, id); },
     societe: function (id) { return parId(data.societes, id); },
     personne: function (id) { return parId(data.personnes, id); },
+    vehicule: function (id) { return parId(data.vehicules, id); },
+    vehiculesDe: function (personneId) {
+      return data.vehicules.filter(function (v) { return v.chauffeurId === personneId && v.actif; });
+    },
+    aeroportsVehicules: function () {
+      return data.aeroports.filter(function (a) { return a.badgesVehicules; }).sort(function (a, b) { return U.comparer(a.nom, b.nom); });
+    },
     typeParDefaut: function () {
       return data.typesBadge.filter(function (t) { return t.parDefaut; })[0] || data.typesBadge[0] || null;
     },
