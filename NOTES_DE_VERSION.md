@@ -1,5 +1,15 @@
 # Notes de version — Suivi des badges
 
+## Version 3.1
+
+### Correction
+
+- Après avoir fermé Chrome puis rouvert l'application, la base pouvait s'ouvrir en lecture seule
+  avec le message « en cours de modification par » … soi-même (le verrou n'avait pas été libéré
+  à la fermeture). L'application reconnaît maintenant ses propres anciens verrous sur le même PC
+  et les reprend automatiquement. Un deuxième onglet ouvert en même temps reste en lecture seule,
+  comme un autre PC.
+
 ## Version 3
 
 ### Nouveautés

@@ -26,6 +26,7 @@ var DB = (function () {
   var CLE_LOCAL = 'suivi-badges:donnees';
   var CLE_COPIE = 'suivi-badges:copie-securite';
   var CLE_UTILISATEUR = 'suivi-badges:utilisateur';
+  var CLE_POSTE = 'suivi-badges:poste';
 
   var data = null;
   var dossier = null;          // FileSystemDirectoryHandle
@@ -38,6 +39,32 @@ var DB = (function () {
   var etat = { enregistreLe: null, erreur: null };
   var ecouteurs = [];
   var session = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  var PREFIXE_ONGLET = 'suivi-badges-onglet-';
+
+  /* Chaque onglet ouvert tient un « Web Lock » à son nom tant qu'il vit : on peut ainsi
+     savoir si la session qui a posé un verrou est encore ouverte dans ce navigateur. */
+  if (navigator.locks) navigator.locks.request(PREFIXE_ONGLET + session, function () { return new Promise(function () {}); });
+
+  /* Identifiant de ce navigateur sur ce PC (pour reconnaître ses propres anciens verrous). */
+  function poste() {
+    try {
+      var id = localStorage.getItem(CLE_POSTE);
+      if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem(CLE_POSTE, id); }
+      return id;
+    } catch (e) { return ''; }
+  }
+
+  /* Le verrou vient-il de ce navigateur, d'un onglet qui n'est plus ouvert ? (Chrome fermé sans libérer le verrou) */
+  function verrouOrphelin(v) {
+    if (!v) return Promise.resolve(false);
+    // verrous de la version 3 sans « poste » : reconnus au nom d'utilisateur
+    var deMoi = v.poste ? v.poste === poste() : (!!utilisateur() && v.utilisateur === utilisateur());
+    if (!deMoi) return Promise.resolve(false);
+    if (!navigator.locks || !navigator.locks.query) return Promise.resolve(true);
+    return navigator.locks.query().then(function (etat) {
+      return !etat.held.some(function (l) { return l.name === PREFIXE_ONGLET + v.session; });
+    }, function () { return true; });
+  }
 
   var dossiersSupportes = typeof window.showDirectoryPicker === 'function';
 
@@ -175,21 +202,23 @@ var DB = (function () {
   }
 
   function ecrireVerrou(depuis) {
-    var v = { utilisateur: utilisateur() || 'Utilisateur inconnu', session: session, depuis: depuis || new Date().toISOString(), battement: new Date().toISOString() };
+    var v = { utilisateur: utilisateur() || 'Utilisateur inconnu', poste: poste(), session: session, depuis: depuis || new Date().toISOString(), battement: new Date().toISOString() };
     return dossier.getFileHandle(NOM_VERROU, { create: true }).then(function (h) { return ecrireFichier(h, JSON.stringify(v)); }).then(function () { return v; });
   }
 
   /* Tente de prendre le verrou. Renvoie true si on peut modifier. */
   function prendreVerrou(forcer) {
     return lireVerrou().then(function (v) {
-      if (!forcer && verrouValide(v)) { verrouAutre = v; return false; }
-      return ecrireVerrou().then(function () {
-        // deux ouvertures simultanées : on relit pour vérifier qui a gagné
-        return new Promise(function (ok) { setTimeout(ok, 400); });
-      }).then(lireVerrou).then(function (v2) {
-        if (v2 && v2.session !== session) { verrouAutre = v2; return false; }
-        verrouAutre = null;
-        return true;
+      return (forcer || !verrouValide(v) ? Promise.resolve(true) : verrouOrphelin(v)).then(function (libre) {
+        if (!libre) { verrouAutre = v; return false; }
+        return ecrireVerrou().then(function () {
+          // deux ouvertures simultanées : on relit pour vérifier qui a gagné
+          return new Promise(function (ok) { setTimeout(ok, 400); });
+        }).then(lireVerrou).then(function (v2) {
+          if (v2 && v2.session !== session) { verrouAutre = v2; return false; }
+          verrouAutre = null;
+          return true;
+        });
       });
     });
   }
