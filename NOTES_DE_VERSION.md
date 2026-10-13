@@ -1,5 +1,15 @@
 # Notes de version — Suivi des badges
 
+## Version 3.2
+
+### Nouveauté
+
+- Matrice : un « E » vert à côté du nom des aéroports où un escorteur est nécessaire.
+- Dans les cases badge de ces aéroports, un petit « E » à côté du statut pour chaque escorteur :
+  - « E » vert : escorteur avec un badge valide et actif ;
+  - « E » gris barré : escorteur, mais badge expiré ou inactif (il ne peut pas escorter).
+- L'export Excel indique aussi « + escorteur ».
+
 ## Version 3.1
 
 ### Correction

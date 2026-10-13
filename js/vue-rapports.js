@@ -319,6 +319,28 @@
     });
   }
 
+  /*
+   * Escorteur : la petite « E » se met dans les colonnes « badge » de l'aéroport
+   * (types qui peuvent devenir inactifs ; les permis ∞ sont exclus), sinon dans la 1re colonne.
+   * Verte si le badge est valide ET actif, grise barrée sinon (escorteur qui ne peut pas escorter).
+   */
+  function colonnesEscorte(c) {
+    if (!c.a.besoinEscorteur) return [];
+    var badges = c.types.filter(function (t) { return Statut.delaiActivite(c.a, t.id) !== Infinity; });
+    return (badges.length ? badges : c.types.slice(0, 1)).map(function (t) { return t.id; });
+  }
+
+  function marqueEscorte(p, c, t, s) {
+    if (p.escorteur[c.a.id] !== true || colonnesEscorte(c).indexOf(t.id) < 0) return '';
+    return s.actif
+      ? '<span class="esc esc-ok" title="Escorteur">E</span>'
+      : '<span class="esc esc-ko" title="Escorteur, mais badge non valide ou inactif : ne peut pas escorter">E</span>';
+  }
+
+  function iconeAeroportEscorte(a) {
+    return a.besoinEscorteur ? ' <span class="esc esc-ok" title="Escorteur nécessaire">E</span>' : '';
+  }
+
   function cellule(p, a, t, aujourdhui) {
     return Statut.meilleur(DB.data.documents.filter(function (d) {
       return d.personneId === p.id && d.aeroportId === a.id && d.typeId === t.id;
@@ -336,7 +358,9 @@
       '<span class="aide">Noms :</span><button class="secondaire petit" data-tout="pers-on">tout cocher</button>' +
       '<button class="secondaire petit" data-tout="pers-off">tout décocher</button>' +
       '<div class="droite"><button class="secondaire" id="m-csv">Exporter (Excel)</button><button class="secondaire" onclick="window.print()">Imprimer</button></div>' +
-      '</div>' + Statut.legende() +
+      '</div>' + Statut.legende().replace(/<\/div>$/,
+        '<span><span class="esc esc-ok">E</span>Escorteur (badge valide et actif)</span>' +
+        '<span><span class="esc esc-ko">E</span>Escorteur, mais badge non valide ou inactif</span></div>') +
       '<p class="aide no-print">Décochez une colonne ou un nom pour le retirer de l\'impression et de l\'export.</p>' +
       '<div id="m-res" class="filtre"></div>';
 
@@ -355,7 +379,7 @@
           var visibles = c.types.filter(function (t) { return !colMasquee(c.a, t); }).length;
           return '<th class="aer debut-aer' + (visibles ? '' : ' masque') + '" colspan="' + c.types.length + '">' +
             caseCoche('data-col-aer="' + U.esc(c.a.id) + '"' + (visibles && visibles < c.types.length ? ' data-partiel' : ''), visibles > 0,
-              'Afficher / masquer toutes les colonnes de ' + c.a.nom) + U.esc(c.a.nom) + '</th>';
+              'Afficher / masquer toutes les colonnes de ' + c.a.nom) + U.esc(c.a.nom) + iconeAeroportEscorte(c.a) + '</th>';
         }).join('') + '</tr><tr>' +
         cols.map(function (c) {
           return c.types.map(function (t, i) {
@@ -372,10 +396,12 @@
           cols.map(function (c) {
             return c.types.map(function (t, i) {
               var s = cellule(p, c.a, t, aujourdhui);
+              var esc = marqueEscorte(p, c, t, s);
               var info = c.a.nom + ' — ' + t.nom + ' : ' + s.libelle + (s.detail ? ' (' + s.detail + ')' : '') +
-                (s.doc && s.doc.dateExpiration ? ' — expire le ' + U.fmtDate(s.doc.dateExpiration) : '');
+                (s.doc && s.doc.dateExpiration ? ' — expire le ' + U.fmtDate(s.doc.dateExpiration) : '') +
+                (esc ? (s.actif ? ' — escorteur' : ' — escorteur, mais ne peut pas escorter') : '');
               return '<td class="cel ' + s.classe + (i ? '' : ' debut-aer') + (colMasquee(c.a, t) ? ' masque' : '') +
-                '" title="' + U.esc(info) + '">' + Statut.icone(s) + '</td>';
+                '" title="' + U.esc(info) + '">' + Statut.icone(s) + esc + '</td>';
             }).join('');
           }).join('') + '</tr>';
       }).join('');
@@ -427,7 +453,10 @@
         cols.forEach(function (c) {
           c.types.forEach(function (t) {
             var s = cellule(p, c.a, t, aujourdhui);
-            l.push(s.code === 'aucun' ? '' : s.libelle + (s.doc && s.doc.dateExpiration ? ' (' + U.fmtDate(s.doc.dateExpiration) + ')' : ''));
+            var esc = p.escorteur[c.a.id] === true && colonnesEscorte(c).indexOf(t.id) >= 0
+              ? (s.actif ? ' + escorteur' : ' + escorteur (ne peut pas escorter)') : '';
+            l.push((s.code === 'aucun' ? (esc ? 'Pas de badge' : '') : s.libelle +
+              (s.doc && s.doc.dateExpiration ? ' (' + U.fmtDate(s.doc.dateExpiration) + ')' : '')) + esc);
           });
         });
         lignes.push(l);

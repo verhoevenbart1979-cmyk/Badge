@@ -98,6 +98,14 @@ button.lien-demande:hover { color: var(--violet); text-decoration: underline; }
 .matrice th input[type=checkbox], .matrice td input[type=checkbox] { margin: 0 3px 0 0; vertical-align: middle; }
 button.petit { padding: 2px 8px; font-size: 12px; }
 
+/* escorteur (matrice) */
+.esc { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%;
+  font-size: 10px; font-weight: 700; line-height: 1; margin-left: 3px; vertical-align: middle; font-style: normal; }
+.esc-ok { background: var(--vert); color: #fff; }
+.esc-ko { background: transparent; color: var(--gris); border: 1px solid var(--gris); text-decoration: line-through; }
+.matrice th .esc { width: 16px; height: 16px; font-size: 10px; }
+@media print { .esc { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+
 /* lecture seule */
 .bandeau { background: var(--jaune-fond); border-bottom: 1px solid #e8d27a; padding: 8px 20px; font-size: 13px; }
 .bandeau button { padding: 3px 10px; font-size: 12px; margin-left: 6px; }
