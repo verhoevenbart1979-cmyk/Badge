@@ -160,21 +160,28 @@ var DB = (function () {
       if (p.remarque == null) p.remarque = '';
     });
     d.documents.forEach(function (doc) { if (doc.dateDemande === undefined) doc.dateDemande = null; });
-    d.vehicules.forEach(function (v) {
-      if (v.actif == null) v.actif = true;
-      if (!v.badges || typeof v.badges !== 'object') v.badges = {};
-      if (v.chauffeurId === undefined) v.chauffeurId = null;
-      ['type', 'immatriculation', 'remarque'].forEach(function (k) { if (v[k] == null) v[k] = ''; });
-    });
     var p = d.parametres = d.parametres || {};
     if (p.margeRenouvellement == null) p.margeRenouvellement = 30;
     if (p.societeDefaut === undefined) {
       var jdc = d.societes.filter(function (s) { return String(s.nom).trim().toUpperCase() === 'JDC'; })[0];
       p.societeDefaut = jdc ? jdc.id : '';
     }
+    p.vehicules = p.vehicules || {};
+    if (!Array.isArray(p.vehicules.colonnesMasquees)) p.vehicules.colonnesMasquees = [];
+    if (!Array.isArray(p.vehicules.vehiculesMasques)) p.vehicules.vehiculesMasques = [];
     p.matrice = p.matrice || {};
     if (!Array.isArray(p.matrice.colonnesMasquees)) p.matrice.colonnesMasquees = [];
     if (!Array.isArray(p.matrice.personnesMasquees)) p.matrice.personnesMasquees = [];
+    d.vehicules.forEach(function (v) {
+      if (v.actif == null) v.actif = true;
+      if (!v.badges || typeof v.badges !== 'object') v.badges = {};
+      if (v.chauffeurId === undefined) v.chauffeurId = null;
+      if (v.societeId === undefined) {
+        var ch = v.chauffeurId && d.personnes.filter(function (pe) { return pe.id === v.chauffeurId; })[0];
+        v.societeId = (ch && ch.societeId) || p.societeDefaut || null;
+      }
+      ['type', 'immatriculation', 'remarque'].forEach(function (k) { if (v[k] == null) v[k] = ''; });
+    });
     d.version = 2;
     return d;
   }

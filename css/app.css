@@ -94,7 +94,9 @@ button.lien-demande:hover { color: var(--violet); text-decoration: underline; }
 .table-delais input.infini { color: var(--violet); font-weight: 700; }
 
 /* matrice : colonnes / noms décochés */
-.matrice .masque, .matrice tr.masque td { opacity: .28; }
+.matrice .masque, .matrice tr.masque td,
+.table-vehicules .masque, .table-vehicules tr.masque td { opacity: .28; }
+.table-vehicules th input[type=checkbox], .table-vehicules td input[type=checkbox] { margin: 0 4px 0 0; vertical-align: middle; }
 .matrice th input[type=checkbox], .matrice td input[type=checkbox] { margin: 0 3px 0 0; vertical-align: middle; }
 button.petit { padding: 2px 8px; font-size: 12px; }
 
@@ -162,7 +164,7 @@ body.lecture-seule .entete { background: #6b5b1f; }
   .carte { border: none; padding: 0; }
   .passage input[type=date]::-webkit-calendar-picker-indicator { display: none; }
   .bandeau { display: none !important; }
-  .matrice .masque { display: none; }
+  .matrice .masque, .table-vehicules .masque { display: none; }
   .titre-imprime { display: block; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
   .matrice-cadre { overflow: visible; max-height: none; border: none; }
   .matrice thead th { position: static; }

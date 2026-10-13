@@ -1,5 +1,11 @@
 # Notes de version — Suivi des badges
 
+## Version 4.1
+
+- Véhicules : chaque véhicule a une **société** (celle du chauffeur, sinon JDC) ; la page s'ouvre sur **JDC**.
+- Véhicules : cases à cocher sur les colonnes et sur chaque véhicule, comme dans la matrice.
+  Décoché = grisé à l'écran, absent de l'impression et de l'export. Boutons « tout cocher / tout décocher ».
+
 ## Version 4
 
 ### Nouveauté : les véhicules
