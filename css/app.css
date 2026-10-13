@@ -108,12 +108,19 @@ td.num, th.num { text-align: right; }
 .sous-onglets a.actif { background: var(--accent); color: #fff; border-color: var(--accent); }
 .titre-imprime { display: none; }
 
+/* dernier passage modifiable dans les rapports */
+.passage { display: inline-flex; align-items: center; white-space: nowrap; }
+.passage input[type=date] { border-color: transparent; background: transparent; padding: 2px 4px; cursor: pointer; }
+.passage input[type=date]:hover { border-color: var(--bord); background: #fff; }
+.passage input[type=date]:not([value]), .passage input[type=date][value=""] { color: var(--gris); }
+
 @media print {
   @page { size: A4 landscape; margin: 10mm; }
   body { background: #fff; font-size: 11px; }
   .entete, .barre, .sous-onglets, .no-print, .toast { display: none !important; }
   main { padding: 0; max-width: none; }
   .carte { border: none; padding: 0; }
+  .passage input[type=date]::-webkit-calendar-picker-indicator { display: none; }
   .titre-imprime { display: block; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
   .matrice-cadre { overflow: visible; max-height: none; border: none; }
   .matrice thead th { position: static; }

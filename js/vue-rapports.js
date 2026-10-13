@@ -2,7 +2,7 @@
 
 /* Rapports : par aéroport, par personne, matrice. */
 (function () {
-  var choix = { aeroport: '', types: null, societe: '', personne: '', matriceSocietes: '', matriceAeroports: null, archives: false };
+  var choix = { aeroport: '', types: null, societe: '', personne: '', societePersonne: '', matriceSocietes: '', matriceAeroports: null, archives: false };
 
   function onglets(actif) {
     return '<div class="sous-onglets">' + [
@@ -20,6 +20,42 @@
   function nomComplet(p) { return (p.nom + ' ' + p.prenom).trim(); }
 
   function joursTxt(n) { return n == null ? '' : String(n); }
+
+  /* Cellule « dernier passage » modifiable directement dans le rapport. */
+  function champPassage(d) {
+    var t = DB.type(d.typeId);
+    if (t && !t.comptePassage && !d.dernierPassage) return '';
+    return '<span class="passage"><input type="date" data-passage="' + U.esc(d.id) + '" value="' + U.esc(d.dernierPassage) + '"' +
+      ' title="Cliquer pour modifier la date du dernier passage">' +
+      '<button class="icone no-print" data-passage-auj="' + U.esc(d.id) + '" title="Passage aujourd\'hui">↻</button></span>';
+  }
+
+  /* Enregistre les modifications de « dernier passage » faites dans `zone`, puis appelle `rafraichir`. */
+  function brancherPassage(zone, rafraichir) {
+    function maj(id, valeur) {
+      var d = DB.data.documents.filter(function (x) { return x.id === id; })[0];
+      if (!d) return;
+      d.dernierPassage = valeur || null;
+      DB.enregistrer();
+      U.toast('Dernier passage enregistré');
+      rafraichir();
+    }
+    zone.addEventListener('change', function (e) {
+      var id = e.target.getAttribute('data-passage');
+      if (!id) return;
+      var v = e.target.value;
+      // pendant la saisie au clavier l'année passe par 0002, 0020… : on attend une date complète
+      if (v && !/^(19|20)\d\d-/.test(v)) return;
+      maj(id, v);
+    });
+    zone.addEventListener('click', function (e) {
+      var id = e.target.getAttribute('data-passage-auj');
+      if (id) { maj(id, U.aujourdhui()); return; }
+      if (e.target.hasAttribute('data-passage') && e.target.showPicker) {
+        try { e.target.showPicker(); } catch (err) { /* déjà ouvert */ }
+      }
+    });
+  }
 
   function escorteurTxt(p, a) {
     var v = p.escorteur[a.id];
@@ -102,7 +138,7 @@
               var t = DB.type(l.d.typeId);
               return '<tr class="cliquable" data-p="' + U.esc(l.p.id) + '"><td>' + U.esc(l.p.nom) + '</td><td>' + U.esc(l.p.prenom) + '</td>' +
                 '<td>' + U.esc(DB.nomSociete(l.p.societeId)) + '</td><td>' + U.esc(t ? t.nom : '') + '</td>' +
-                '<td>' + U.esc(l.d.numero) + '</td><td>' + U.fmtDate(l.d.dateExpiration) + '</td><td>' + U.fmtDate(l.d.dernierPassage) + '</td>' +
+                '<td>' + U.esc(l.d.numero) + '</td><td>' + U.fmtDate(l.d.dateExpiration) + '</td><td>' + champPassage(l.d) + '</td>' +
                 '<td>' + Statut.pastille(l.s) + '</td>' +
                 (sec.code === 'actif' ? '<td class="num"><b>' + joursTxt(l.s.joursActifs) + '</b></td>' : '') +
                 '<td class="num">' + joursTxt(l.s.joursValidite) + '</td>' +
@@ -119,6 +155,7 @@
       remplir();
     };
     zone.onclick = allerPersonne;
+    brancherPassage(zone, remplir);
     el.querySelector('#r-csv').onclick = function () {
       var a = DB.aeroport(choix.aeroport);
       if (!a) return;
@@ -138,24 +175,37 @@
   }
 
   function allerPersonne(e) {
+    if (e.target.closest('input, button, select, .passage')) return;
     var tr = e.target.closest('tr[data-p]');
     if (tr) App.aller('#/personne/' + encodeURIComponent(tr.getAttribute('data-p')));
   }
 
   /* ======================= 2. PAR PERSONNE ======================= */
   function rapportPersonne(el, params) {
-    if (params[0]) choix.personne = params[0];
-    var personnes = DB.personnesTriees(true);
-    if (!DB.personne(choix.personne)) choix.personne = personnes.length ? personnes[0].id : '';
+    if (params[0] && DB.personne(params[0])) {
+      choix.personne = params[0];
+      choix.societePersonne = DB.personne(params[0]).societeId || '';
+    }
 
     el.innerHTML = '<h1>Rapports</h1>' + onglets('personne') +
-      '<div class="barre"><select id="r-pers">' + U.options(personnes.map(function (p) {
-        return { value: p.id, label: nomComplet(p) + (DB.nomSociete(p.societeId) ? ' — ' + DB.nomSociete(p.societeId) : '') + (p.actif ? '' : ' (archivée)') };
-      }), choix.personne) + '</select>' +
+      '<div class="barre">' +
+      '<select id="r-soc">' + U.options(optionsSocietes(), choix.societePersonne || '', 'Toutes les sociétés') + '</select>' +
+      '<select id="r-pers"></select>' +
       '<div class="droite"><button class="secondaire" id="r-csv">Exporter (Excel)</button><button class="secondaire" onclick="window.print()">Imprimer</button></div>' +
       '</div><div id="r-res"></div>';
 
     var zone = el.querySelector('#r-res');
+    var selPers = el.querySelector('#r-pers');
+    function remplirPersonnes() {
+      var personnes = DB.personnesTriees(true).filter(function (p) {
+        return !choix.societePersonne || p.societeId === choix.societePersonne;
+      });
+      if (!personnes.some(function (p) { return p.id === choix.personne; })) choix.personne = personnes.length ? personnes[0].id : '';
+      selPers.innerHTML = U.options(personnes.map(function (p) {
+        return { value: p.id, label: nomComplet(p) + (choix.societePersonne || !DB.nomSociete(p.societeId) ? '' : ' — ' + DB.nomSociete(p.societeId)) + (p.actif ? '' : ' (archivée)') };
+      }), choix.personne);
+    }
+    remplirPersonnes();
     function lignesPersonne(p) {
       var ordreTypes = DB.data.typesBadge.map(function (t) { return t.id; });
       return DB.documentsDe(p.id).map(function (d) {
@@ -165,8 +215,8 @@
       });
     }
     function remplir() {
-      var p = DB.personne(choix.personne);
-      if (!p) { zone.innerHTML = '<p class="vide">Aucune personne.</p>'; return; }
+      var p = choix.personne && DB.personne(choix.personne);
+      if (!p) { zone.innerHTML = '<p class="vide">Aucune personne pour cette société.</p>'; return; }
       var lignes = lignesPersonne(p);
       var resume = {};
       lignes.forEach(function (l) { resume[l.s.code] = (resume[l.s.code] || 0) + 1; });
@@ -182,7 +232,7 @@
           '<th>Statut</th><th>Détail</th><th class="num">Jours actifs restants</th><th>Escorteur</th></tr></thead><tbody>' +
           lignes.map(function (l) {
             return '<tr><td>' + U.esc(l.a ? l.a.nom : '?') + '</td><td>' + U.esc(l.t ? l.t.nom : '') + '</td><td>' + U.esc(l.d.numero) + '</td>' +
-              '<td>' + U.fmtDate(l.d.dateExpiration) + '</td><td>' + U.fmtDate(l.d.dernierPassage) + '</td>' +
+              '<td>' + U.fmtDate(l.d.dateExpiration) + '</td><td>' + champPassage(l.d) + '</td>' +
               '<td>' + Statut.pastille(l.s) + '</td><td class="aide">' + U.esc(l.s.detail) + '</td>' +
               '<td class="num">' + (l.s.joursActifs != null && l.s.joursActifs >= 0 ? l.s.joursActifs : '') + '</td>' +
               '<td>' + (l.a && l.a.besoinEscorteur ? escorteurTxt(p, l.a) : '') + '</td></tr>';
@@ -191,7 +241,9 @@
         '</div>';
     }
     remplir();
-    el.querySelector('#r-pers').onchange = function () { choix.personne = this.value; remplir(); };
+    selPers.onchange = function () { choix.personne = this.value; remplir(); };
+    el.querySelector('#r-soc').onchange = function () { choix.societePersonne = this.value; remplirPersonnes(); remplir(); };
+    brancherPassage(zone, remplir);
     el.querySelector('#r-csv').onclick = function () {
       var p = DB.personne(choix.personne);
       if (!p) return;
