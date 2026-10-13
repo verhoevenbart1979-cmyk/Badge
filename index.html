@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivi des badges</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="entete">
+  <div class="titre">Suivi des badges</div>
+  <nav id="menu">
+    <a href="#/personnes" data-menu="personnes">Personnes</a>
+    <a href="#/rapports/aeroport" data-menu="rapports">Rapports</a>
+    <a href="#/configuration" data-menu="configuration">Configuration</a>
+    <a href="#/fichier" data-menu="fichier">Base de données</a>
+  </nav>
+  <div id="etat-fichier" class="etat-fichier"></div>
+</header>
+<main id="vue"></main>
+<div id="toast" class="toast" hidden></div>
+
+<!-- Scripts classiques (pas de modules ES : ils sont bloqués en file://) -->
+<script src="js/util.js"></script>
+<script src="js/db.js"></script>
+<script src="js/statut.js"></script>
+<script src="js/app.js"></script>
+<script src="js/vue-fichier.js"></script>
+<script src="js/vue-personnes.js"></script>
+<script src="js/vue-configuration.js"></script>
+<script src="js/vue-rapports.js"></script>
+</body>
+</html>

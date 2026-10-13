@@ -1,0 +1,7 @@
+# Données personnelles : ne jamais versionner la base ni le classeur source
+*.json
+!package.json
+*.xlsx
+*.xls
+*.csv
+__pycache__/
