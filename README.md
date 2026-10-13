@@ -5,18 +5,24 @@ Draait volledig in **Google Chrome** (of Edge), zonder installatie, zonder serve
 
 ## Starten
 
-1. Kopieer deze map naar de pc (of naar een netwerkschijf).
+1. Zet de map `SuiviBadges` (applicatie + `badges.json`) op de pc of een netwerkschijf.
 2. Dubbelklik op `index.html`; de pagina opent in Chrome.
-3. Eerste keer: **« Ouvrir un fichier badges.json… »** en kies de databank
-   (bv. `\\server\share\Badges\badges.json`). Chrome vraagt toestemming om het
-   bestand te lezen en te bewerken: kies *Modifier le fichier* / *Toestaan*.
-4. Daarna toont het startscherm **« Rouvrir « badges.json » »**: één klik volstaat.
+3. Eerste keer: **« Ouvrir le dossier de la base… »** en kies de **map** waarin `badges.json` staat
+   (bv. `\\server\share\SuiviBadges`). Chrome vraagt toestemming om de bestanden te bewerken: accepteer.
+   Chrome vraagt ook eenmalig je naam (zichtbaar voor collega's).
+4. Daarna toont het startscherm **« Rouvrir le dossier … »**: één klik volstaat.
 
 Elke wijziging wordt meteen in `badges.json` bewaard (rechtsboven: « enregistré à … »).
 
-> De data staan **nooit** in GitHub: `.gitignore` sluit alle `.json`/`.xlsx`-bestanden uit.
-> Maak regelmatig een back-up via *Base de données → Télécharger une sauvegarde*
-> (of laat de netwerkschijf back-uppen).
+## Meerdere gebruikers
+
+- Wie de databank opent, zet een slot (`badges.lock`). Een tweede gebruiker opent de databank
+  **in lezen**: raadplegen en afdrukken kan, wijzigen niet (gele balk bovenaan).
+- Het slot wordt elke minuut ververst en vervalt na 5 minuten (pc uit, Chrome gecrasht).
+  Met « Réessayer » kan de tweede gebruiker overnemen zodra de databank vrij is;
+  « Forcer la modification » alleen gebruiken als de eerste gebruiker zeker gestopt is.
+- Elke dag wordt bij het eerste openen een kopie bewaard in `sauvegardes/badges_AAAA-MM-JJ.json`
+  (laatste 30 dagen); terugzetten via *Base de données*.
 
 ## Schermen
 
@@ -25,8 +31,8 @@ Elke wijziging wordt meteen in `badges.json` bewaard (rechtsboven: « enregistr�
 | **Personnes** | Zoeken, filteren op firma, klikken opent de fiche (naam, voornaam, firma, escorteur, badges & permits) |
 | **Rapports → Par aéroport** | Geldig & actief / geldig maar niet actief / ongeldig / geen badge, met resterende actieve dagen |
 | **Rapports → Par personne** | Status van alle documenten van één persoon |
-| **Rapports → Matrice** | Personen × (luchthaven → types): ✔ groen, ✔ oranje, 🔒 geel, ✘ rood, ? grijs, – geen badge |
-| **Configuration** | Luchthavens (termijnen, besoin escorteur, kolommen in de matrix), badge-types (dernier passage oui/non), firma's |
+| **Rapports → Matrice** | Personen × (luchthaven → types); kolommen en namen uitvinken = niet afgedrukt/geëxporteerd |
+| **Configuration** | Standaardfirma voor rapporten, marge oranje, luchthavens, délais d'activité per type, badge-types, firma's |
 | **Base de données** | Ander bestand openen, herladen, back-up downloaden / terugzetten |
 
 Rapporten kunnen afgedrukt worden (of als PDF via Chrome) en geëxporteerd naar Excel (CSV).
@@ -35,18 +41,22 @@ Rapporten kunnen afgedrukt worden (of als PDF via Chrome) en geëxporteerd naar 
 
 | Status | Regel |
 |---|---|
-| ✘ Expiré | vervaldatum voorbij |
-| 🔒 Valide mais inactif | type met « dernier passage » en laatste passage + délai passage < vandaag (of geen passage gekend) |
-| ✔ À renouveler (oranje) | geldig en actief, maar vervalt binnen « délai demande de badge » |
-| ✔ Valide et actif | anders |
+| ✘ Expiré (rood) | vervaldatum voorbij |
+| ⚠ !!! Attention !!! (magenta) | vervalt binnen de *délai demande* (te laat om nog aan te vragen), of een lopende aanvraag komt pas na de vervaldatum aan |
+| 🔒 Valide mais inactif (geel) | laatste passage + délai d'activité < vandaag (of geen passage gekend) |
+| ✔ À renouveler (oranje) | vervalt binnen *délai demande* + marge (standaard 30 dagen) |
+| ⏳ Demande lancée (paars) | aanvraag lopend (knop 📨 in de fiche); verwachte aankomst = aanvraagdatum + délai demande |
+| ✔ Valide et actif (groen) | anders (met ⏳ erbij als er al een vernieuwing gevraagd is) |
 | ? Date inconnue | geen vervaldatum ingevuld |
 
-*Jours actifs restants* = laatste passage + délai passage − vandaag (begrensd door de vervaldatum).
+*Délai d'activité*: per luchthaven × type instelbaar in Configuration (leeg = délai dernier passage van
+de luchthaven, `inf` = nooit inactief). *Jours actifs restants* = laatste passage + délai d'activité − vandaag
+(begrensd door de vervaldatum). Een aanvraag sluit automatisch af zodra een latere vervaldatum wordt ingevuld.
 
 ## Technisch
 
 - Gewone HTML/CSS/JavaScript, geen bibliotheken, geen build-stap (`js/*.js` als klassieke scripts, want ES-modules werken niet via `file://`).
-- Opslag via de *File System Access API* van Chrome; noodoplossing: opslag in de browser zelf.
-- Bij gelijktijdige wijziging van het bestand (andere pc) verschijnt een waarschuwing i.p.v. stil te overschrijven.
+- Opslag via de *File System Access API* van Chrome (toegang tot de gekozen map); noodoplossing: opslag in de browser zelf.
+- Naast het slot is er een tweede beveiliging: wordt `badges.json` toch buiten de applicatie gewijzigd, dan verschijnt een waarschuwing i.p.v. stil te overschrijven.
 - `outils/import_excel.py`: eenmalige migratie van het oude Excel-bestand
   (`python3 outils/import_excel.py suivi.xlsx badges.json rapport.md`, vereist `openpyxl`).

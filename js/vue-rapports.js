@@ -2,7 +2,23 @@
 
 /* Rapports : par aéroport, par personne, matrice. */
 (function () {
-  var choix = { aeroport: '', types: null, societe: '', personne: '', societePersonne: '', matriceSocietes: '', matriceAeroports: null, archives: false };
+  var choix = { aeroport: '', types: null, societe: '', personne: '', societePersonne: '', matriceSocietes: '', archives: false };
+  var societeInitialisee = false;
+
+  /* Première ouverture d'un rapport : société présélectionnée (Configuration → paramètres). */
+  function initSociete() {
+    if (societeInitialisee) return;
+    societeInitialisee = true;
+    var def = DB.data.parametres.societeDefaut;
+    if (def && DB.societe(def)) choix.societe = choix.societePersonne = choix.matriceSocietes = def;
+  }
+
+  /* Types « badge » (pas jamais-inactifs partout, comme les permis) : cochés par défaut. */
+  function typesParDefaut() {
+    return DB.data.typesBadge.filter(function (t) {
+      return !DB.data.aeroports.length || DB.data.aeroports.some(function (a) { return Statut.delaiActivite(a, t.id) !== Infinity; });
+    }).map(function (t) { return t.id; });
+  }
 
   function onglets(actif) {
     return '<div class="sous-onglets">' + [
@@ -23,8 +39,7 @@
 
   /* Cellule « dernier passage » modifiable directement dans le rapport. */
   function champPassage(d) {
-    var t = DB.type(d.typeId);
-    if (t && !t.comptePassage && !d.dernierPassage) return '';
+    if (Statut.delaiActivite(DB.aeroport(d.aeroportId), d.typeId) === Infinity && !d.dernierPassage) return '';
     return '<span class="passage"><input type="date" data-passage="' + U.esc(d.id) + '" value="' + U.esc(d.dernierPassage) + '"' +
       ' title="Cliquer pour modifier la date du dernier passage">' +
       '<button class="icone no-print" data-passage-auj="' + U.esc(d.id) + '" title="Passage aujourd\'hui">↻</button></span>';
@@ -66,16 +81,18 @@
   var SECTIONS = [
     { code: 'actif', titre: 'Badge valide et actif', classe: 'st-valide', icone: '✔' },
     { code: 'inactif', titre: 'Badge valide mais plus actif', classe: 'st-inactif', icone: '🔒' },
+    { code: 'demande', titre: 'Demande lancée', classe: 'st-demande', icone: '⏳' },
     { code: 'invalide', titre: 'Badge non valide', classe: 'st-expire', icone: '✘' },
     { code: 'aucun', titre: 'Pas de badge', classe: 'st-aucun', icone: '–' }
   ];
-  function section(code) {
-    return code === 'valide' || code === 'renouveler' ? 'actif' : code === 'inactif' ? 'inactif' : 'invalide';
+  function section(s) {
+    if (s.code === 'demande') return 'demande';
+    return s.actif ? 'actif' : s.valide ? 'inactif' : 'invalide';
   }
 
   function calculerAeroport(a, typesIds, societeId) {
     var aujourdhui = U.aujourdhui();
-    var res = { actif: [], inactif: [], invalide: [], aucun: [] };
+    var res = { actif: [], inactif: [], demande: [], invalide: [], aucun: [] };
     DB.personnesTriees(false).forEach(function (p) {
       if (societeId && p.societeId !== societeId) return;
       var docs = DB.documentsDe(p.id).filter(function (d) {
@@ -84,11 +101,12 @@
       if (!docs.length) { res.aucun.push({ p: p }); return; }
       docs.forEach(function (d) {
         var s = Statut.calculer(d, aujourdhui);
-        res[section(s.code)].push({ p: p, d: d, s: s });
+        res[section(s)].push({ p: p, d: d, s: s });
       });
     });
     res.actif.sort(function (x, y) { return x.s.joursActifs - y.s.joursActifs; });
     res.inactif.sort(function (x, y) { return x.s.joursValidite - y.s.joursValidite; });
+    res.demande.sort(function (x, y) { return U.comparer(x.s.demande.arrivee, y.s.demande.arrivee); });
     return res;
   }
 
@@ -96,10 +114,11 @@
     var aeroports = DB.aeroportsTries();
     if (params[0]) choix.aeroport = params[0];
     if (!DB.aeroport(choix.aeroport)) choix.aeroport = aeroports.length ? aeroports[0].id : '';
-    if (!choix.types) choix.types = DB.data.typesBadge.filter(function (t) { return t.comptePassage; }).map(function (t) { return t.id; });
+    if (!choix.types) choix.types = typesParDefaut();
+    initSociete();
 
     el.innerHTML = '<h1>Rapports</h1>' + onglets('aeroport') +
-      '<div class="barre">' +
+      '<div class="barre filtre">' +
       '<select id="r-aer">' + U.options(aeroports.map(function (a) { return { value: a.id, label: a.nom }; }), choix.aeroport) + '</select>' +
       '<select id="r-soc">' + U.options(optionsSocietes(), choix.societe, 'Toutes les sociétés') + '</select>' +
       '<div class="cases" id="r-types">' + DB.data.typesBadge.map(function (t) {
@@ -133,6 +152,7 @@
           return html + '<table><thead><tr><th>Nom</th><th>Prénom</th><th>Société</th><th>Type</th><th>Numéro</th>' +
             '<th>Expiration</th><th>Dernier passage</th><th>Statut</th>' +
             (sec.code === 'actif' ? '<th class="num">Jours actifs restants</th>' : '') +
+            (sec.code === 'demande' ? '<th>Demandé le</th><th>Arrivée prévue</th>' : '') +
             '<th class="num">Jours de validité</th>' + (esc ? '<th>Escorteur</th>' : '') + '</tr></thead><tbody>' +
             lignes.map(function (l) {
               var t = DB.type(l.d.typeId);
@@ -141,6 +161,8 @@
                 '<td>' + U.esc(l.d.numero) + '</td><td>' + U.fmtDate(l.d.dateExpiration) + '</td><td>' + champPassage(l.d) + '</td>' +
                 '<td>' + Statut.pastille(l.s) + '</td>' +
                 (sec.code === 'actif' ? '<td class="num"><b>' + joursTxt(l.s.joursActifs) + '</b></td>' : '') +
+                (sec.code === 'demande' ? '<td>' + U.fmtDate(l.s.demande.date) + '</td><td' + (l.s.demande.retard ? ' class="retard"' : '') + '>' +
+                  U.fmtDate(l.s.demande.arrivee) + '</td>' : '') +
                 '<td class="num">' + joursTxt(l.s.joursValidite) + '</td>' +
                 (esc ? '<td>' + escorteurTxt(l.p, a) + '</td>' : '') + '</tr>';
             }).join('') + '</tbody></table></div>';
@@ -161,13 +183,14 @@
       if (!a) return;
       var res = calculerAeroport(a, choix.types, choix.societe);
       var lignes = [['Catégorie', 'Nom', 'Prénom', 'Société', 'Type', 'Numéro', 'Expiration', 'Dernier passage', 'Statut',
-        'Jours actifs restants', 'Jours de validité', 'Escorteur']];
+        'Jours actifs restants', 'Jours de validité', 'Escorteur', 'Demandé le', 'Arrivée prévue']];
       SECTIONS.forEach(function (sec) {
         res[sec.code].forEach(function (l) {
           var t = l.d ? DB.type(l.d.typeId) : null;
           lignes.push([sec.titre, l.p.nom, l.p.prenom, DB.nomSociete(l.p.societeId), t ? t.nom : '', l.d ? l.d.numero : '',
             l.d ? U.fmtDate(l.d.dateExpiration) : '', l.d ? U.fmtDate(l.d.dernierPassage) : '', l.s ? l.s.libelle : 'Pas de badge',
-            l.s && sec.code === 'actif' ? l.s.joursActifs : '', l.s ? l.s.joursValidite : '', a.besoinEscorteur ? escorteurTxt(l.p, a) : '']);
+            l.s && sec.code === 'actif' ? l.s.joursActifs : '', l.s ? l.s.joursValidite : '', a.besoinEscorteur ? escorteurTxt(l.p, a) : '',
+            l.s && l.s.demande ? U.fmtDate(l.s.demande.date) : '', l.s && l.s.demande ? U.fmtDate(l.s.demande.arrivee) : '']);
         });
       });
       U.exporterCsv('rapport_' + (a.code || a.nom) + '_' + U.aujourdhui() + '.csv', lignes);
@@ -182,13 +205,14 @@
 
   /* ======================= 2. PAR PERSONNE ======================= */
   function rapportPersonne(el, params) {
+    initSociete();
     if (params[0] && DB.personne(params[0])) {
       choix.personne = params[0];
       choix.societePersonne = DB.personne(params[0]).societeId || '';
     }
 
     el.innerHTML = '<h1>Rapports</h1>' + onglets('personne') +
-      '<div class="barre">' +
+      '<div class="barre filtre">' +
       '<select id="r-soc">' + U.options(optionsSocietes(), choix.societePersonne || '', 'Toutes les sociétés') + '</select>' +
       '<select id="r-pers"></select>' +
       '<div class="droite"><button class="secondaire" id="r-csv">Exporter (Excel)</button><button class="secondaire" onclick="window.print()">Imprimer</button></div>' +
@@ -258,17 +282,37 @@
   }
 
   /* ======================= 3. MATRICE ======================= */
-  function colonnesMatrice() {
-    var sel = choix.matriceAeroports;
-    return DB.aeroportsTries().filter(function (a) { return !sel || sel.indexOf(a.id) >= 0; }).map(function (a) {
+  /*
+   * Chaque colonne (aéroport × type) et chaque personne a une case à cocher.
+   * Décoché = grisé à l'écran, absent de l'impression et de l'export.
+   * Le choix est gardé dans la base (parametres.matrice).
+   */
+  function masques() { return DB.data.parametres.matrice; }
+  function cleCol(a, t) { return a.id + '|' + t.id; }
+  function colMasquee(a, t) { return masques().colonnesMasquees.indexOf(cleCol(a, t)) >= 0; }
+  function persMasquee(p) { return masques().personnesMasquees.indexOf(p.id) >= 0; }
+
+  function basculer(liste, cle, masquer) {
+    var i = liste.indexOf(cle);
+    if (masquer && i < 0) liste.push(cle);
+    if (!masquer && i >= 0) liste.splice(i, 1);
+  }
+
+  /* Enregistre le choix (sauf en lecture seule : il reste alors en mémoire). */
+  function memoriserMasques() { if (!DB.lectureSeule) DB.enregistrer(); }
+
+  function colonnesMatrice(sansMasquees) {
+    return DB.aeroportsTries().map(function (a) {
       var types = a.typesMatrice.map(DB.type).filter(Boolean);
       if (!types.length && DB.typeParDefaut()) types = [DB.typeParDefaut()];
+      if (sansMasquees) types = types.filter(function (t) { return !colMasquee(a, t); });
       return { a: a, types: types };
     }).filter(function (c) { return c.types.length; });
   }
 
-  function personnesMatrice() {
+  function personnesMatrice(sansMasquees) {
     return DB.personnesTriees(choix.archives).filter(function (p) {
+      if (sansMasquees && persMasquee(p)) return false;
       return !choix.matriceSocietes || p.societeId === choix.matriceSocietes;
     }).sort(function (x, y) {
       return U.comparerVidesFin(DB.nomSociete(x.societeId), DB.nomSociete(y.societeId)) || U.comparer(x.nom, y.nom) || U.comparer(x.prenom, y.prenom);
@@ -282,61 +326,103 @@
   }
 
   function rapportMatrice(el) {
-    var tous = DB.aeroportsTries();
+    initSociete();
     el.innerHTML = '<h1>Rapports</h1>' + onglets('matrice') +
-      '<div class="barre">' +
+      '<div class="barre filtre">' +
       '<select id="m-soc">' + U.options(optionsSocietes(), choix.matriceSocietes, 'Toutes les sociétés') + '</select>' +
       '<label><input type="checkbox" id="m-arch"' + (choix.archives ? ' checked' : '') + '> personnes archivées</label>' +
-      '<details><summary>Aéroports affichés</summary><div class="cases" id="m-aer" style="flex-direction:column;padding:6px">' +
-      tous.map(function (a) {
-        return '<label><input type="checkbox" value="' + U.esc(a.id) + '"' +
-          (!choix.matriceAeroports || choix.matriceAeroports.indexOf(a.id) >= 0 ? ' checked' : '') + '> ' + U.esc(a.nom) + '</label>';
-      }).join('') + '</div></details>' +
+      '<span class="aide">Colonnes :</span><button class="secondaire petit" data-tout="col-on">tout cocher</button>' +
+      '<button class="secondaire petit" data-tout="col-off">tout décocher</button>' +
+      '<span class="aide">Noms :</span><button class="secondaire petit" data-tout="pers-on">tout cocher</button>' +
+      '<button class="secondaire petit" data-tout="pers-off">tout décocher</button>' +
       '<div class="droite"><button class="secondaire" id="m-csv">Exporter (Excel)</button><button class="secondaire" onclick="window.print()">Imprimer</button></div>' +
-      '</div>' + Statut.legende() + '<div id="m-res"></div>';
+      '</div>' + Statut.legende() +
+      '<p class="aide no-print">Décochez une colonne ou un nom pour le retirer de l\'impression et de l\'export.</p>' +
+      '<div id="m-res" class="filtre"></div>';
 
     var zone = el.querySelector('#m-res');
-    function remplir() {
-      var cols = colonnesMatrice(), pers = personnesMatrice(), aujourdhui = U.aujourdhui();
+    function remplir(impression) {
+      var cols = colonnesMatrice(impression), pers = personnesMatrice(impression), aujourdhui = U.aujourdhui();
       if (!cols.length || !pers.length) { zone.innerHTML = '<p class="vide">Rien à afficher.</p>'; return; }
-      var html = '<div class="titre-imprime">Matrice des badges — situation au ' + U.fmtDate(aujourdhui) + '</div>' +
+      var caseCoche = function (attr, coche, titre) {
+        return impression ? '' : '<input type="checkbox" class="no-print" ' + attr + (coche ? ' checked' : '') + ' title="' + U.esc(titre) + '"> ';
+      };
+      var html = '<div class="titre-imprime">Matrice des badges — situation au ' + U.fmtDate(aujourdhui) +
+        (choix.matriceSocietes ? ' — ' + U.esc(DB.nomSociete(choix.matriceSocietes)) : '') + '</div>' +
         '<div class="matrice-cadre"><table class="matrice"><thead><tr>' +
         '<th class="col-fixe" rowspan="2">Nom</th><th rowspan="2">Société</th>' +
         cols.map(function (c) {
-          return '<th class="aer debut-aer" colspan="' + c.types.length + '" title="' + U.esc(c.a.nom) + '">' + U.esc(c.a.nom) + '</th>';
+          var visibles = c.types.filter(function (t) { return !colMasquee(c.a, t); }).length;
+          return '<th class="aer debut-aer' + (visibles ? '' : ' masque') + '" colspan="' + c.types.length + '">' +
+            caseCoche('data-col-aer="' + U.esc(c.a.id) + '"' + (visibles && visibles < c.types.length ? ' data-partiel' : ''), visibles > 0,
+              'Afficher / masquer toutes les colonnes de ' + c.a.nom) + U.esc(c.a.nom) + '</th>';
         }).join('') + '</tr><tr>' +
         cols.map(function (c) {
-          return c.types.map(function (t, i) { return '<th' + (i ? '' : ' class="debut-aer"') + '>' + U.esc(t.nom) + '</th>'; }).join('');
+          return c.types.map(function (t, i) {
+            var m = colMasquee(c.a, t);
+            return '<th class="' + (i ? '' : 'debut-aer') + (m ? ' masque' : '') + '">' +
+              caseCoche('data-col="' + U.esc(cleCol(c.a, t)) + '"', !m, 'Afficher / masquer cette colonne') + U.esc(t.nom) + '</th>';
+          }).join('');
         }).join('') + '</tr></thead><tbody>';
       html += pers.map(function (p) {
-        return '<tr class="cliquable" data-p="' + U.esc(p.id) + '"><td class="col-fixe">' + U.esc(nomComplet(p)) + '</td>' +
+        var pm = persMasquee(p);
+        return '<tr class="cliquable' + (pm ? ' masque' : '') + '" data-p="' + U.esc(p.id) + '"><td class="col-fixe">' +
+          caseCoche('data-pers="' + U.esc(p.id) + '"', !pm, 'Afficher / masquer cette personne') + U.esc(nomComplet(p)) + '</td>' +
           '<td>' + U.esc(DB.nomSociete(p.societeId)) + '</td>' +
           cols.map(function (c) {
             return c.types.map(function (t, i) {
               var s = cellule(p, c.a, t, aujourdhui);
               var info = c.a.nom + ' — ' + t.nom + ' : ' + s.libelle + (s.detail ? ' (' + s.detail + ')' : '') +
                 (s.doc && s.doc.dateExpiration ? ' — expire le ' + U.fmtDate(s.doc.dateExpiration) : '');
-              return '<td class="cel ' + s.classe + (i ? '' : ' debut-aer') + '" title="' + U.esc(info) + '">' + s.icone + '</td>';
+              return '<td class="cel ' + s.classe + (i ? '' : ' debut-aer') + (colMasquee(c.a, t) ? ' masque' : '') +
+                '" title="' + U.esc(info) + '">' + Statut.icone(s) + '</td>';
             }).join('');
           }).join('') + '</tr>';
       }).join('');
       zone.innerHTML = html + '</tbody></table></div>';
+      zone.querySelectorAll('[data-partiel]').forEach(function (c) { c.indeterminate = true; });
     }
-    remplir();
+    remplir(false);
+    // impression (bouton ou Ctrl+P) : sans colonnes ni noms décochés
+    window.onbeforeprint = function () { remplir(true); };
+    window.onafterprint = function () { remplir(false); };
 
-    el.querySelector('#m-soc').onchange = function () { choix.matriceSocietes = this.value; remplir(); };
-    el.querySelector('#m-arch').onchange = function () { choix.archives = this.checked; remplir(); };
-    el.querySelector('#m-aer').onchange = function () {
-      choix.matriceAeroports = [].map.call(this.querySelectorAll('input:checked'), function (i) { return i.value; });
-      remplir();
+    el.querySelector('#m-soc').onchange = function () { choix.matriceSocietes = this.value; remplir(false); };
+    el.querySelector('#m-arch').onchange = function () { choix.archives = this.checked; remplir(false); };
+    zone.onchange = function (e) {
+      var t = e.target, m = masques();
+      if (t.hasAttribute('data-col')) basculer(m.colonnesMasquees, t.getAttribute('data-col'), !t.checked);
+      else if (t.hasAttribute('data-pers')) basculer(m.personnesMasquees, t.getAttribute('data-pers'), !t.checked);
+      else if (t.hasAttribute('data-col-aer')) {
+        var a = DB.aeroport(t.getAttribute('data-col-aer'));
+        colonnesMatrice(false).filter(function (c) { return c.a === a; })[0].types.forEach(function (ty) {
+          basculer(m.colonnesMasquees, cleCol(a, ty), !t.checked);
+        });
+      } else return;
+      memoriserMasques();
+      remplir(false);
     };
+    el.querySelector('.barre').addEventListener('click', function (e) {
+      var tout = e.target.getAttribute('data-tout');
+      if (!tout) return;
+      var m = masques();
+      if (tout === 'col-on') m.colonnesMasquees = [];
+      if (tout === 'col-off') m.colonnesMasquees = [].concat.apply([], colonnesMatrice(false).map(function (c) {
+        return c.types.map(function (t) { return cleCol(c.a, t); });
+      }));
+      if (tout === 'pers-on' || tout === 'pers-off') {
+        personnesMatrice(false).forEach(function (p) { basculer(m.personnesMasquees, p.id, tout === 'pers-off'); });
+      }
+      memoriserMasques();
+      remplir(false);
+    });
     zone.onclick = allerPersonne;
     el.querySelector('#m-csv').onclick = function () {
-      var cols = colonnesMatrice(), aujourdhui = U.aujourdhui();
+      var cols = colonnesMatrice(true), aujourdhui = U.aujourdhui();
       var l1 = ['Nom', 'Prénom', 'Société'], l2 = ['', '', ''];
       cols.forEach(function (c) { c.types.forEach(function (t) { l1.push(c.a.nom); l2.push(t.nom); }); });
       var lignes = [l1, l2];
-      personnesMatrice().forEach(function (p) {
+      personnesMatrice(true).forEach(function (p) {
         var l = [p.nom, p.prenom, DB.nomSociete(p.societeId)];
         cols.forEach(function (c) {
           c.types.forEach(function (t) {

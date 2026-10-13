@@ -35,7 +35,7 @@ REMARQUES_AEROPORT = {
     'a_chi': "Demande à introduire 3 semaines minimum à l'avance.",
 }
 TYPES = [
-    # id, nom, par défaut, tenir compte du dernier passage
+    # id, nom, par défaut, tenir compte du dernier passage (sinon délai d'activité ∞)
     ('t_perm', 'Badge permanent', True, True),
     ('t_temp', 'Badge temporaire', False, True),
     ('t_visit', 'Badge visiteur', False, False),
@@ -325,13 +325,14 @@ def main():
     ordre_types = [t[0] for t in TYPES]
 
     data = dict(
-        version=1,
+        version=2,
         meta=dict(creeLe=dt.datetime.now().isoformat(timespec='seconds'), source=src.split('/')[-1]),
         aeroports=[dict(id=i, code=c, nom=n, delaiDemande=dd, delaiPassage=dp, besoinEscorteur=be,
                         typesMatrice=[t for t in ordre_types if t in types_par_aer[i]] or ['t_perm'],
+                        delaisActivite={t: 'infini' for t, _, _, compte in TYPES if not compte},
                         remarque=REMARQUES_AEROPORT.get(i, ''))
                    for i, c, n, dd, dp, be in AEROPORTS],
-        typesBadge=[dict(id=i, nom=n, parDefaut=d, comptePassage=c) for i, n, d, c in TYPES],
+        typesBadge=[dict(id=i, nom=n, parDefaut=d) for i, n, d, _ in TYPES],
         societes=societes,
         personnes=[dict(id=p['id'], nom=p['nom'], prenom=p['prenom'], societeId=soc_id.get(p['societe']),
                         actif=True, remarque='', escorteur=esc.get(p['id'], {})) for p in personnes],

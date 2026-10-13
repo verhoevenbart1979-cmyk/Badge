@@ -11,6 +11,8 @@
   --jaune: #b88a00;  --jaune-fond: #fff6cc;
   --rouge: #c62828;  --rouge-fond: #fde5e5;
   --gris: #8a94a0;   --gris-fond: #eef0f3;
+  --violet: #5b3fc4; --violet-fond: #ebe6fb;
+  --magenta: #b0127a; --magenta-fond: #fde0f1;
 }
 
 * { box-sizing: border-box; }
@@ -75,6 +77,31 @@ td.num, th.num { text-align: right; }
 .st-expire     { background: var(--rouge-fond);  color: var(--rouge); }
 .st-inconnu    { background: var(--gris-fond);   color: var(--gris); }
 .st-aucun      { background: transparent;        color: #b8c0ca; }
+.st-demande    { background: var(--violet-fond);  color: var(--violet); }
+.st-attention  { background: var(--magenta-fond); color: var(--magenta); font-weight: 700; outline: 1px solid var(--magenta); }
+.retard { color: var(--rouge); font-weight: 600; }
+
+/* demande de badge (fiche) */
+.cellule-statut { min-width: 170px; }
+.demande { font-size: 12px; color: var(--violet); margin-top: 4px; white-space: nowrap; }
+.demande input[type=date] { padding: 1px 3px; font-size: 12px; }
+.demande .ok { color: var(--vert); }
+button.lien-demande { background: none; border: none; color: var(--doux); font-size: 12px; padding: 2px 0; margin-top: 3px; }
+button.lien-demande:hover { color: var(--violet); text-decoration: underline; }
+
+/* délais d'activité */
+.table-delais input[type=text] { width: 64px; min-width: 0; text-align: right; }
+.table-delais input.infini { color: var(--violet); font-weight: 700; }
+
+/* matrice : colonnes / noms décochés */
+.matrice .masque, .matrice tr.masque td { opacity: .28; }
+.matrice th input[type=checkbox], .matrice td input[type=checkbox] { margin: 0 3px 0 0; vertical-align: middle; }
+button.petit { padding: 2px 8px; font-size: 12px; }
+
+/* lecture seule */
+.bandeau { background: var(--jaune-fond); border-bottom: 1px solid #e8d27a; padding: 8px 20px; font-size: 13px; }
+.bandeau button { padding: 3px 10px; font-size: 12px; margin-left: 6px; }
+body.lecture-seule .entete { background: #6b5b1f; }
 .compteur { display: inline-block; min-width: 22px; text-align: center; margin-right: 3px; }
 
 /* ---------- rapports ---------- */
@@ -121,6 +148,8 @@ td.num, th.num { text-align: right; }
   main { padding: 0; max-width: none; }
   .carte { border: none; padding: 0; }
   .passage input[type=date]::-webkit-calendar-picker-indicator { display: none; }
+  .bandeau { display: none !important; }
+  .matrice .masque { display: none; }
   .titre-imprime { display: block; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
   .matrice-cadre { overflow: visible; max-height: none; border: none; }
   .matrice thead th { position: static; }

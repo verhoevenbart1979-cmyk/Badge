@@ -9,11 +9,11 @@
     var d = DB.data;
     el.innerHTML =
       '<h1>Personnes</h1>' +
-      '<div class="barre">' +
+      '<div class="barre filtre">' +
       '<input type="search" id="f-texte" placeholder="Rechercher un nom…" value="' + U.esc(filtres.texte) + '" autofocus>' +
       '<select id="f-societe">' + U.options(societesOptions(), filtres.societe, 'Toutes les sociétés') + '</select>' +
       '<label><input type="checkbox" id="f-archives"' + (filtres.archives ? ' checked' : '') + '> afficher les personnes archivées</label>' +
-      '<div class="droite"><button id="btn-nouveau">+ Nouvelle personne</button></div>' +
+      '<div class="droite"><button id="btn-nouveau" class="edition">+ Nouvelle personne</button></div>' +
       '</div>' +
       '<div class="carte" style="padding:0"><table><thead><tr>' +
       '<th>Nom</th><th>Prénom</th><th>Société</th><th class="num">Documents</th><th>Points d\'attention</th>' +
@@ -29,7 +29,7 @@
       });
       corps.innerHTML = lignes.length ? lignes.map(function (p) {
         var docs = DB.documentsDe(p.id);
-        var n = { expire: 0, inactif: 0, renouveler: 0, inconnu: 0 };
+        var n = { attention: 0, expire: 0, inactif: 0, renouveler: 0, demande: 0, inconnu: 0 };
         docs.forEach(function (doc) { var c = Statut.calculer(doc, aujourdhui).code; if (c in n) n[c]++; });
         var alertes = Object.keys(n).filter(function (c) { return n[c]; }).map(function (c) {
           var s = Statut.DEF[c];
@@ -97,7 +97,7 @@
 
       '<div class="carte"><div class="barre"><h2 style="margin:0">Badges et permis</h2>' +
       '<div class="droite"><button id="btn-ajout">+ Ajouter un badge / permis</button></div></div>' +
-      '<div id="docs"></div>' + Statut.legende(['valide', 'renouveler', 'inactif', 'inconnu', 'expire']) + '</div>';
+      '<div id="docs"></div>' + Statut.legende(['valide', 'renouveler', 'demande', 'inactif', 'attention', 'inconnu', 'expire']) + '</div>';
 
     // --- identité ---
     var majChamp = function (sel, fn) { el.querySelector(sel).onchange = function () { fn(this); DB.enregistrer(); }; };
@@ -181,12 +181,12 @@
           '<td><input type="date" data-champ="dateExpiration" value="' + U.esc(doc.dateExpiration) + '"></td>' +
           '<td style="white-space:nowrap"><input type="date" data-champ="dernierPassage" value="' + U.esc(doc.dernierPassage) + '">' +
           '<button class="icone" data-action="aujourdhui" title="Passage aujourd\'hui">↻</button></td>' +
-          '<td data-statut></td><td class="num" data-jours></td>' +
+          '<td class="cellule-statut"><span data-pastille></span><div data-demande></div></td><td class="num" data-jours></td>' +
           '<td><input type="text" data-champ="remarque" value="' + U.esc(doc.remarque) + '"></td>' +
           '<td><button class="icone" data-action="suppr" title="Supprimer">🗑</button></td></tr>';
       }).join('') + '</tbody></table>';
 
-    zone.querySelectorAll('tr[data-doc]').forEach(majStatutLigne);
+    zone.querySelectorAll('tr[data-doc]').forEach(function (tr) { majDemande(tr); majStatutLigne(tr); });
 
     zone.onchange = function (e) {
       var champ = e.target.getAttribute('data-champ');
@@ -194,7 +194,15 @@
       if (!champ || !tr) return;
       var doc = docParId(tr.getAttribute('data-doc'));
       var v = e.target.value.trim();
+      var ancien = doc[champ];
       doc[champ] = v || null;
+      // nouvelle date d'expiration plus lointaine pendant une demande = badge reçu
+      if (champ === 'dateExpiration' && doc.dateDemande && v && /^(19|20)\d\d-/.test(v) &&
+          (!ancien || v > ancien) && v > doc.dateDemande) {
+        doc.dateDemande = null;
+        majDemande(tr);
+        U.toast('Nouveau badge encodé : la demande est clôturée.');
+      }
       DB.enregistrer();
       majStatutLigne(tr);
     };
@@ -208,6 +216,22 @@
         tr.querySelector('[data-champ="dernierPassage"]').value = doc.dernierPassage;
         DB.enregistrer();
         majStatutLigne(tr);
+      } else if (action === 'demande') {
+        doc.dateDemande = U.aujourdhui();
+        DB.enregistrer();
+        majDemande(tr);
+        majStatutLigne(tr);
+        U.toast('Demande lancée aujourd\'hui : modifiez la date si nécessaire.');
+      } else if (action === 'recu' || action === 'annuler-demande') {
+        if (action === 'annuler-demande' && !confirm('Annuler la demande en cours ?')) return;
+        doc.dateDemande = null;
+        DB.enregistrer();
+        majDemande(tr);
+        majStatutLigne(tr);
+        if (action === 'recu') {
+          U.toast('Demande clôturée. Encodez le nouveau numéro et la nouvelle date d\'expiration.');
+          tr.querySelector('[data-champ="numero"]').focus();
+        }
       } else if (action === 'suppr') {
         if (!confirm('Supprimer ce document ?')) return;
         DB.data.documents = DB.data.documents.filter(function (x) { return x !== doc; });
@@ -219,11 +243,25 @@
 
   function docParId(id) { return DB.data.documents.filter(function (x) { return x.id === id; })[0]; }
 
+  /* Zone « demande » sous le statut : bouton 📨, ou date de demande + arrivée prévue. */
+  function majDemande(tr) {
+    var doc = docParId(tr.getAttribute('data-doc'));
+    tr.querySelector('[data-demande]').innerHTML = doc.dateDemande
+      ? '<div class="demande">📨 demandé le <input type="date" data-champ="dateDemande" value="' + U.esc(doc.dateDemande) + '">' +
+        ' <span data-arrivee></span>' +
+        ' <button class="icone ok" data-action="recu" title="Badge reçu : clôturer la demande">✓ Reçu</button>' +
+        '<button class="icone" data-action="annuler-demande" title="Annuler la demande">✕</button></div>'
+      : '<button class="lien-demande" data-action="demande" title="Une demande de badge a été introduite">📨 Demande lancée…</button>';
+  }
+
   function majStatutLigne(tr) {
     var doc = docParId(tr.getAttribute('data-doc'));
     var s = Statut.calculer(doc);
-    tr.querySelector('[data-statut]').innerHTML = doc.aeroportId ? Statut.pastille(s) : '<span class="aide">choisir un aéroport</span>';
+    tr.querySelector('[data-pastille]').innerHTML = doc.aeroportId ? Statut.pastille(s) : '<span class="aide">choisir un aéroport</span>';
     tr.querySelector('[data-jours]').textContent = s.joursActifs != null && s.joursActifs >= 0 ? s.joursActifs : '';
+    var arr = tr.querySelector('[data-arrivee]');
+    if (arr) arr.innerHTML = s.demande ? '→ arrivée prévue le <b' + (s.demande.retard ? ' class="retard"' : '') + '>' +
+      U.fmtDate(s.demande.arrivee) + '</b>' : '';
   }
 
   App.enregistrerVue('personnes', liste);
