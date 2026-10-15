@@ -33,6 +33,7 @@ Elke wijziging wordt meteen in `badges.json` bewaard (rechtsboven: « enregistr�
 | **Rapports → Par aéroport** | Geldig & actief / geldig maar niet actief / ongeldig / geen badge, met resterende actieve dagen |
 | **Rapports → Par personne** | Status van alle documenten van één persoon |
 | **Rapports → Matrice** | Personen × (luchthaven → types); kolommen en namen uitvinken = niet afgedrukt/geëxporteerd |
+| **Personnes → Importer le planning…** | Leest het planning (Excel) en werkt de laatste passage per luchthaven bij (aperçu vóór toepassen) |
 | **Configuration** | Standaardfirma voor rapporten, marge oranje, luchthavens, délais d'activité per type, badge-types, firma's |
 | **Base de données** | Ander bestand openen, herladen, back-up downloaden / terugzetten |
 
@@ -56,7 +57,7 @@ de luchthaven, `inf` = nooit inactief). *Jours actifs restants* = laatste passag
 
 ## Technisch
 
-- Gewone HTML/CSS/JavaScript, geen bibliotheken, geen build-stap (`js/*.js` als klassieke scripts, want ES-modules werken niet via `file://`).
+- Gewone HTML/CSS/JavaScript, geen build-stap; één meegeleverde bibliotheek: SheetJS (`js/vendor/xlsx.full.min.js`, Apache-2.0) om het planning te lezen (`js/*.js` als klassieke scripts, want ES-modules werken niet via `file://`).
 - Opslag via de *File System Access API* van Chrome (toegang tot de gekozen map); noodoplossing: opslag in de browser zelf.
 - Naast het slot is er een tweede beveiliging: wordt `badges.json` toch buiten de applicatie gewijzigd, dan verschijnt een waarschuwing i.p.v. stil te overschrijven.
 - `outils/import_excel.py`: eenmalige migratie van het oude Excel-bestand

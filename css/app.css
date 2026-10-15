@@ -108,6 +108,12 @@ button.petit { padding: 2px 8px; font-size: 12px; }
 .matrice th .esc { width: 16px; height: 16px; font-size: 10px; }
 @media print { .esc { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 
+/* dernier passage par aéroport (fiche) */
+.grille-passages { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 20px; }
+.passage-aer { display: flex; flex-direction: column; gap: 3px; }
+.passage-aer label { font-size: 12px; font-weight: 600; }
+.passage-aer .ligne { display: flex; align-items: center; gap: 2px; }
+
 /* véhicules */
 .table-vehicules td.cel-vehicule { white-space: nowrap; }
 .table-vehicules td.cel-vehicule .aide { display: block; margin-top: 2px; }

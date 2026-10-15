@@ -210,7 +210,7 @@
       var existants = DB.data.vehicules.map(function (v) { return cle(v.immatriculation, v.type, v.chauffeurId); });
       var ajoutes = 0, ignores = 0, inconnus = [];
       j.vehicules.forEach(function (src) {
-        var pc = src.chauffeur ? trouverPersonne(src.chauffeur) : null;
+        var pc = src.chauffeur ? DB.trouverPersonne(src.chauffeur) : null;
         if (existants.indexOf(cle(src.immatriculation, src.type, pc && pc.id)) >= 0) { ignores++; return; }
         var badges = {};
         Object.keys(src.badges || {}).forEach(function (k) {
@@ -234,21 +234,6 @@
         App.afficher();
       });
     });
-  }
-
-  /* « DENIS Frédéric » → la personne DENIS Frederic (accents, prénom abrégé « Fred »…). */
-  function trouverPersonne(texte) {
-    var t = U.normaliser(texte).replace(/\s+/g, ' ');
-    var ps = DB.data.personnes;
-    var exact = ps.filter(function (p) { return U.normaliser(p.nom + ' ' + p.prenom) === t || U.normaliser(p.prenom + ' ' + p.nom) === t; });
-    if (exact.length === 1) return exact[0];
-    var proches = ps.filter(function (p) {
-      var nom = U.normaliser(p.nom), pre = U.normaliser(p.prenom);
-      if (t.indexOf(nom + ' ') !== 0) return false;
-      var reste = t.slice(nom.length + 1);
-      return reste && pre && (pre.indexOf(reste.slice(0, 4)) === 0 || reste.indexOf(pre.slice(0, 4)) === 0);
-    });
-    return proches.length === 1 ? proches[0] : null;
   }
 
   /* ======================= FICHE ======================= */

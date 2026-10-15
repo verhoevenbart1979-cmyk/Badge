@@ -129,7 +129,7 @@ var DB = (function () {
       throw new Error("Ce fichier n'est pas une base de données de badges valide.");
     }
     d.meta = d.meta || {};
-    ['aeroports', 'typesBadge', 'societes', 'personnes', 'documents', 'vehicules'].forEach(function (k) {
+    ['aeroports', 'typesBadge', 'societes', 'personnes', 'documents', 'vehicules', 'projets'].forEach(function (k) {
       if (!Array.isArray(d[k])) d[k] = [];
     });
     // aéroports où les véhicules ont un badge (fichier Excel d'origine : BAC, EBCI, EBLG, LUX)
@@ -159,7 +159,21 @@ var DB = (function () {
       if (!p.escorteur || typeof p.escorteur !== 'object') p.escorteur = {};
       if (p.remarque == null) p.remarque = '';
     });
-    d.documents.forEach(function (doc) { if (doc.dateDemande === undefined) doc.dateDemande = null; });
+    d.personnes.forEach(function (p) { if (!p.passages || typeof p.passages !== 'object') p.passages = {}; });
+    // v4.2 : le dernier passage est tenu par personne × aéroport (avant : par document) ; on garde le plus récent
+    var personnesParId = {};
+    d.personnes.forEach(function (p) { personnesParId[p.id] = p; });
+    d.documents.forEach(function (doc) {
+      if (doc.dateDemande === undefined) doc.dateDemande = null;
+      if ('dernierPassage' in doc) {
+        var pe = personnesParId[doc.personneId];
+        if (pe && doc.aeroportId && doc.dernierPassage && !(pe.passages[doc.aeroportId] >= doc.dernierPassage)) {
+          pe.passages[doc.aeroportId] = doc.dernierPassage;
+        }
+        delete doc.dernierPassage;
+      }
+    });
+    d.projets.forEach(function (pr) { if (pr.commentaire == null) pr.commentaire = ''; if (pr.aeroportId === undefined) pr.aeroportId = null; });
     var p = d.parametres = d.parametres || {};
     if (p.margeRenouvellement == null) p.margeRenouvellement = 30;
     if (p.societeDefaut === undefined) {
@@ -182,6 +196,17 @@ var DB = (function () {
       }
       ['type', 'immatriculation', 'remarque'].forEach(function (k) { if (v[k] == null) v[k] = ''; });
     });
+    // projets : liste de départ chargée une seule fois (js/projets-initiaux.js)
+    if (!p.projetsInitialises) {
+      p.projetsInitialises = true;
+      if (typeof PROJETS_INITIAUX !== 'undefined' && !d.projets.length) {
+        var aers = {};
+        d.aeroports.forEach(function (a) { aers[a.id] = true; });
+        PROJETS_INITIAUX.forEach(function (pr, i) {
+          if (aers[pr.aeroportId]) d.projets.push({ id: 'pr_' + i, numero: pr.numero, aeroportId: pr.aeroportId, commentaire: pr.commentaire || '' });
+        });
+      }
+    }
     d.version = 2;
     return d;
   }
@@ -487,6 +512,37 @@ var DB = (function () {
     type: function (id) { return parId(data.typesBadge, id); },
     societe: function (id) { return parId(data.societes, id); },
     personne: function (id) { return parId(data.personnes, id); },
+    /* Dernier passage d'une personne sur un aéroport (une seule date par personne × aéroport). */
+    passage: function (personneId, aeroportId) {
+      var p = personneId && parId(data.personnes, personneId);
+      return p && aeroportId ? p.passages[aeroportId] || null : null;
+    },
+    definirPassage: function (personneId, aeroportId, date) {
+      var p = parId(data.personnes, personneId);
+      if (!p || !aeroportId) return;
+      if (date) p.passages[aeroportId] = date; else delete p.passages[aeroportId];
+    },
+    /* Projet d'après un code de planning : « P24_106 », « P24106 », « p24-106 »… */
+    cleProjet: function (code) { return String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); },
+    projetParCode: function (code) {
+      var c = this.cleProjet(code);
+      return c ? data.projets.filter(function (pr) { return this.cleProjet(pr.numero) === c; }, this)[0] || null : null;
+    },
+    /* « DENIS Frédéric », (« DENIS », « Fred ») → la personne (accents, prénom abrégé…) ; null si absente ou ambiguë. */
+    trouverPersonne: function (nom, prenom) {
+      var t = U.normaliser(prenom == null ? nom : nom + ' ' + prenom).replace(/\s+/g, ' ');
+      if (!t) return null;
+      var ps = data.personnes;
+      var exact = ps.filter(function (p) { return U.normaliser(p.nom + ' ' + p.prenom).replace(/\s+/g, ' ') === t || U.normaliser(p.prenom + ' ' + p.nom).replace(/\s+/g, ' ') === t; });
+      if (exact.length === 1) return exact[0];
+      var proches = ps.filter(function (p) {
+        var n = U.normaliser(p.nom), pre = U.normaliser(p.prenom);
+        if (t.indexOf(n + ' ') !== 0) return false;
+        var reste = t.slice(n.length + 1);
+        return reste && pre && (pre.indexOf(reste.slice(0, 4)) === 0 || reste.indexOf(pre.slice(0, 4)) === 0);
+      });
+      return proches.length === 1 ? proches[0] : null;
+    },
     vehicule: function (id) { return parId(data.vehicules, id); },
     vehiculesDe: function (personneId) {
       return data.vehicules.filter(function (v) { return v.chauffeurId === personneId && v.actif; });

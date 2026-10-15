@@ -13,7 +13,8 @@
       '<input type="search" id="f-texte" placeholder="Rechercher un nom…" value="' + U.esc(filtres.texte) + '" autofocus>' +
       '<select id="f-societe">' + U.options(societesOptions(), filtres.societe, 'Toutes les sociétés') + '</select>' +
       '<label><input type="checkbox" id="f-archives"' + (filtres.archives ? ' checked' : '') + '> afficher les personnes archivées</label>' +
-      '<div class="droite"><button id="btn-nouveau" class="edition">+ Nouvelle personne</button></div>' +
+      '<div class="droite"><label class="bouton secondaire edition" title="Met à jour les dates de dernier passage à partir du planning Excel">Importer le planning…<input id="f-planning" class="edition" type="file" accept=".xlsx,.xlsm,.xls" hidden></label>' +
+      '<button id="btn-nouveau" class="edition">+ Nouvelle personne</button></div>' +
       '</div>' +
       '<div class="carte" style="padding:0"><table><thead><tr>' +
       '<th>Nom</th><th>Prénom</th><th>Société</th><th class="num">Documents</th><th>Points d\'attention</th>' +
@@ -49,6 +50,11 @@
     corps.onclick = function (e) {
       var tr = e.target.closest('tr[data-id]');
       if (tr) App.aller('#/personne/' + encodeURIComponent(tr.getAttribute('data-id')));
+    };
+    el.querySelector('#f-planning').onchange = function () {
+      var input = this;
+      Planning.lancer(input.files[0]).catch(function (e) { U.toast(e.message || String(e), true); })
+        .then(function () { input.value = ''; });
     };
     el.querySelector('#btn-nouveau').onclick = function () {
       var p = { id: U.uid('p'), nom: '', prenom: '', societeId: filtres.societe || null, actif: true, remarque: '', escorteur: {} };
@@ -99,6 +105,9 @@
             U.options([{ value: 'oui', label: 'Oui' }, { value: 'non', label: 'Non' }], v === true ? 'oui' : v === false ? 'non' : '', '—') + '</select>');
         }).join('') + '</div></div>' : '') +
 
+      '<div class="carte"><h2 style="margin-top:0">Dernier passage par aéroport</h2>' +
+      '<p class="aide">Une seule date par aéroport : elle vaut pour tous les badges et permis de cet aéroport.</p>' +
+      '<div id="passages"></div></div>' +
       '<div class="carte"><div class="barre"><h2 style="margin:0">Badges et permis</h2>' +
       '<div class="droite"><button id="btn-ajout">+ Ajouter un badge / permis</button></div></div>' +
       '<div id="docs"></div>' + Statut.legende(['valide', 'renouveler', 'demande', 'inactif', 'attention', 'inconnu', 'expire']) + '</div>';
@@ -129,13 +138,18 @@
 
     // --- documents ---
     var zone = el.querySelector('#docs');
+    var zoneP = el.querySelector('#passages');
+    var rafraichirStatuts = function () { zone.querySelectorAll('tr[data-doc]').forEach(majStatutLigne); };
+    var rafraichirPassages = function () { blocPassages(zoneP, p, rafraichirStatuts); };
+    zone.addEventListener('change', function (e) { if (e.target.getAttribute('data-champ') === 'aeroportId') rafraichirPassages(); });
     tableDocuments(zone, p);
+    rafraichirPassages();
     el.querySelector('#btn-ajout').onclick = function () {
       var t = DB.typeParDefaut();
       // sans aéroport : la nouvelle ligne reste en bas du tableau jusqu'au choix
       DB.data.documents.push({
         id: U.uid('d'), personneId: p.id, aeroportId: null,
-        typeId: t ? t.id : null, numero: null, dateExpiration: null, dernierPassage: null, remarque: null
+        typeId: t ? t.id : null, numero: null, dateExpiration: null, dateDemande: null, remarque: null
       });
       DB.enregistrer();
       tableDocuments(zone, p);
@@ -176,15 +190,13 @@
 
     zone.innerHTML = '<table class="table-saisie"><thead><tr>' +
       '<th>Aéroport</th><th>Type de badge</th><th>Numéro de badge</th><th>Date d\'expiration</th>' +
-      '<th>Date dernier passage</th><th>Statut</th><th class="num">Jours actifs restants</th><th>Remarque</th><th></th>' +
+      '<th>Statut</th><th class="num">Jours actifs restants</th><th>Remarque</th><th></th>' +
       '</tr></thead><tbody>' + docs.map(function (doc) {
         return '<tr data-doc="' + U.esc(doc.id) + '">' +
           '<td><select data-champ="aeroportId">' + U.options(optAer, doc.aeroportId, '— choisir —') + '</select></td>' +
           '<td><select data-champ="typeId">' + U.options(optType, doc.typeId, '— choisir —') + '</select></td>' +
           '<td><input type="text" data-champ="numero" value="' + U.esc(doc.numero) + '"></td>' +
           '<td><input type="date" data-champ="dateExpiration" value="' + U.esc(doc.dateExpiration) + '"></td>' +
-          '<td style="white-space:nowrap"><input type="date" data-champ="dernierPassage" value="' + U.esc(doc.dernierPassage) + '">' +
-          '<button class="icone" data-action="aujourdhui" title="Passage aujourd\'hui">↻</button></td>' +
           '<td class="cellule-statut"><span data-pastille></span><div data-demande></div></td><td class="num" data-jours></td>' +
           '<td><input type="text" data-champ="remarque" value="' + U.esc(doc.remarque) + '"></td>' +
           '<td><button class="icone" data-action="suppr" title="Supprimer">🗑</button></td></tr>';
@@ -215,12 +227,7 @@
       var tr = e.target.closest('tr[data-doc]');
       if (!action || !tr) return;
       var doc = docParId(tr.getAttribute('data-doc'));
-      if (action === 'aujourdhui') {
-        doc.dernierPassage = U.aujourdhui();
-        tr.querySelector('[data-champ="dernierPassage"]').value = doc.dernierPassage;
-        DB.enregistrer();
-        majStatutLigne(tr);
-      } else if (action === 'demande') {
+      if (action === 'demande') {
         doc.dateDemande = U.aujourdhui();
         DB.enregistrer();
         majDemande(tr);
@@ -242,6 +249,40 @@
         DB.enregistrer();
         tableDocuments(zone, p);
       }
+    };
+  }
+
+  /* Dernier passage : une date par aéroport où la personne a un badge / permis (ou déjà une date). */
+  function blocPassages(zone, p, apresChangement) {
+    var ids = {};
+    DB.documentsDe(p.id).forEach(function (d) { if (d.aeroportId) ids[d.aeroportId] = true; });
+    Object.keys(p.passages).forEach(function (a) { ids[a] = true; });
+    var aers = DB.aeroportsTries().filter(function (a) { return ids[a.id]; });
+    if (!aers.length) { zone.innerHTML = '<p class="vide">Ajoutez d\'abord un badge ou un permis.</p>'; return; }
+    var aujourdhui = U.aujourdhui();
+    zone.innerHTML = '<div class="grille-passages">' + aers.map(function (a) {
+      var d = p.passages[a.id];
+      return '<div class="passage-aer" data-aer="' + U.esc(a.id) + '"><label>' + U.esc(a.nom) + '</label>' +
+        '<span class="ligne"><input type="date" value="' + U.esc(d) + '">' +
+        '<button class="icone" data-auj title="Passage aujourd\'hui">↻</button></span>' +
+        '<span class="aide">' + (!d ? 'aucun passage' : d >= aujourdhui ? 'aujourd\'hui' : 'il y a ' + U.pluriel(U.ecart(aujourdhui, d), 'jour')) + '</span></div>';
+    }).join('') + '</div>';
+    function maj(bloc, valeur) {
+      DB.definirPassage(p.id, bloc.getAttribute('data-aer'), valeur || null);
+      DB.enregistrer();
+      blocPassages(zone, p, apresChangement);
+      apresChangement();
+    }
+    zone.onchange = function (e) {
+      var bloc = e.target.closest('[data-aer]');
+      if (!bloc || e.target.type !== 'date') return;
+      var v = e.target.value;
+      if (v && !/^(19|20)\d\d-/.test(v)) return;   // saisie au clavier en cours (année 0002…)
+      maj(bloc, v);
+    };
+    zone.onclick = function (e) {
+      var bloc = e.target.closest('[data-aer]');
+      if (bloc && e.target.hasAttribute('data-auj')) maj(bloc, aujourdhui);
     };
   }
 

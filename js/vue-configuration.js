@@ -76,6 +76,19 @@
           }).join('') + '</tr>';
       }).join('') + '</tbody></table></div></div>' +
 
+      '<div class="carte"><div class="barre"><h2 style="margin:0">Projets</h2>' +
+      '<div class="droite"><button data-ajout="projet">+ Ajouter un projet</button></div></div>' +
+      '<p class="aide">Les codes projet du planning (P24_106 ou P24106) donnent l\'aéroport du dernier passage lors de l\'import du planning.</p>' +
+      '<table class="table-saisie" style="max-width:900px"><thead><tr><th>N° projet</th><th>Aéroport</th><th>Commentaire</th><th></th></tr></thead><tbody>' +
+      (d.projets.length ? d.projets.slice().sort(function (a, b) { return U.comparer(a.numero, b.numero); }).map(function (pr) {
+        return '<tr data-liste="projets" data-id="' + U.esc(pr.id) + '">' +
+          '<td><input type="text" data-champ="numero" value="' + U.esc(pr.numero) + '" style="width:110px;min-width:0"></td>' +
+          '<td><select data-champ="aeroportId">' + U.options(aeroports.map(function (a) { return { value: a.id, label: a.nom }; }), pr.aeroportId || '', '— choisir —') + '</select></td>' +
+          '<td><input type="text" data-champ="commentaire" value="' + U.esc(pr.commentaire) + '" style="width:100%"></td>' +
+          '<td><button class="icone" data-suppr title="Supprimer">🗑</button></td></tr>';
+      }).join('') : '<tr><td colspan="4" class="vide">Aucun projet.</td></tr>') +
+      '</tbody></table></div>' +
+
       '<div class="carte"><div class="barre"><h2 style="margin:0">Types de badge</h2>' +
       '<div class="droite"><button data-ajout="type">+ Ajouter un type</button></div></div>' +
       '<table class="table-saisie" style="max-width:640px"><thead><tr><th>Nom</th><th>Par défaut</th>' +
@@ -119,7 +132,7 @@
       if (champ) {
         if (t.type === 'checkbox') o[champ] = t.checked;
         else if (t.hasAttribute('data-nombre')) o[champ] = Math.max(0, parseInt(t.value, 10) || 0);
-        else o[champ] = t.value.trim();
+        else o[champ] = t.tagName === 'SELECT' ? t.value || null : t.value.trim();
         // tenir à jour le tableau des délais d'activité (sans tout redessiner : garde le focus)
         var ligne = el.querySelector('.table-delais tr[data-id="' + o.id + '"]');
         if (ligne && champ === 'delaiPassage') ligne.querySelectorAll('input').forEach(function (i) { i.placeholder = o.delaiPassage; });
@@ -152,16 +165,18 @@
           typesMatrice: dt ? [dt.id] : [], delaisActivite: {}, remarque: '' });
       } else if (ajout === 'type') {
         d.typesBadge.push({ id: U.uid('t'), nom: 'Nouveau type', parDefaut: !d.typesBadge.length });
+      } else if (ajout === 'projet') {
+        d.projets.push({ id: U.uid('pr'), numero: '', aeroportId: null, commentaire: '' });
       } else if (ajout === 'societe') {
         d.societes.push({ id: U.uid('s'), nom: 'Nouvelle société' });
       } else if (t.hasAttribute('data-suppr')) {
         var el2 = element(t.closest('tr[data-liste]')), o = el2.obj, n = 0;
-        if (el2.liste === 'aeroports') n = compter(d.documents, 'aeroportId', o.id) +
+        if (el2.liste === 'aeroports') n = compter(d.documents, 'aeroportId', o.id) + compter(d.projets, 'aeroportId', o.id) +
           d.vehicules.filter(function (v) { return v.badges[o.id]; }).length;
         if (el2.liste === 'typesBadge') n = compter(d.documents, 'typeId', o.id);
         if (el2.liste === 'societes') n = compter(d.personnes, 'societeId', o.id);
         if (n) { U.toast('Impossible : encore utilisé par ' + n + ' élément(s).', true); return; }
-        if (!confirm('Supprimer « ' + (o.nom || o.code) + ' » ?')) return;
+        if (!confirm('Supprimer « ' + (o.nom || o.code || o.numero) + ' » ?')) return;
         d[el2.liste] = d[el2.liste].filter(function (x) { return x !== o; });
         if (el2.liste === 'typesBadge') d.aeroports.forEach(function (a) {
           a.typesMatrice = a.typesMatrice.filter(function (x) { return x !== o.id; });
@@ -174,7 +189,11 @@
       }
       DB.enregistrer();
       vue(el);
-      if (ajout) {
+      if (ajout === 'projet') {
+        // nouveau projet : numéro vide, trié en tête
+        var vide = el.querySelector('tr[data-liste="projets"] input[data-champ="numero"]');
+        if (vide && !vide.value) vide.focus();
+      } else if (ajout) {
         var champs = el.querySelectorAll('tr[data-liste="' + { aeroport: 'aeroports', type: 'typesBadge', societe: 'societes' }[ajout] + '"] input[data-champ="nom"]');
         // le nouvel élément porte le nom par défaut « Nouv… »
         for (var i = 0; i < champs.length; i++) if (/^Nouv/.test(champs[i].value)) { champs[i].select(); champs[i].focus(); break; }

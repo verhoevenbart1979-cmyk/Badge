@@ -1,5 +1,17 @@
 # Notes de version — Suivi des badges
 
+## Version 4.2
+
+- **Dernier passage par aéroport** : une seule date par personne et par aéroport, valable pour tous ses badges
+  et permis de cet aéroport. Dans la fiche : bloc « Dernier passage par aéroport » (avec ↻ = aujourd'hui).
+  Les anciennes dates par badge ont été regroupées automatiquement (la plus récente est gardée).
+- **Projets** (*Configuration → Projets*) : numéro, aéroport et commentaire. 41 projets chargés au départ
+  (liste JDC + onglet L_PROJET du planning) ; les projets sur un aéroport inconnu de l'application ne sont pas repris.
+- **Import du planning** (*Personnes → Importer le planning…*) : l'application part d'aujourd'hui et remonte
+  dans le temps pour trouver, par personne, le dernier jour passé sur chaque aéroport (via les codes projet).
+  Les jours après aujourd'hui (prévisions) sont ignorés. Une date existante plus récente n'est jamais remplacée.
+  Un aperçu des changements est affiché avant d'appliquer.
+
 ## Version 4.1
 
 - Véhicules : chaque véhicule a une **société** (celle du chauffeur, sinon JDC) ; la page s'ouvre sur **JDC**.

@@ -68,15 +68,17 @@ var Statut = (function () {
     var delaiAct = options.sansActivite ? Infinity : delaiActivite(aer, doc.typeId);
     var infini = delaiAct === Infinity;
 
-    var r = { joursValidite: null, joursActifs: null, finActivite: null, detail: '', demande: null, valide: false, actif: false };
+    // dernier passage : par personne × aéroport (un objet de test peut encore le porter lui-même)
+    var passage = 'dernierPassage' in doc ? doc.dernierPassage : DB.passage(doc.personneId, doc.aeroportId);
+    var r = { joursValidite: null, joursActifs: null, finActivite: null, detail: '', demande: null, valide: false, actif: false, passage: passage };
     if (doc.dateExpiration) r.joursValidite = U.ecart(doc.dateExpiration, aujourdhui);
     r.valide = r.joursValidite != null && r.joursValidite >= 0;
 
     if (infini) {
       r.finActivite = doc.dateExpiration;
       r.joursActifs = r.joursValidite;
-    } else if (doc.dernierPassage) {
-      r.finActivite = U.ajouterJours(doc.dernierPassage, delaiAct);
+    } else if (passage) {
+      r.finActivite = U.ajouterJours(passage, delaiAct);
       if (doc.dateExpiration && doc.dateExpiration < r.finActivite) r.finActivite = doc.dateExpiration;
       r.joursActifs = U.ecart(r.finActivite, aujourdhui);
     }
@@ -95,8 +97,8 @@ var Statut = (function () {
       r.detail = 'Expire dans ' + U.pluriel(r.joursValidite, 'jour') + ' : plus assez de temps pour une demande (délai : ' + delaiDemande + ' j)';
     } else if (!r.actif) {
       code = 'inactif';
-      r.detail = doc.dernierPassage
-        ? 'Dernier passage il y a ' + U.pluriel(U.ecart(aujourdhui, doc.dernierPassage), 'jour') + ' (délai : ' + delaiAct + ' j)'
+      r.detail = passage
+        ? 'Dernier passage il y a ' + U.pluriel(U.ecart(aujourdhui, passage), 'jour') + ' (délai : ' + delaiAct + ' j)'
         : 'Aucun dernier passage encodé';
     } else if (r.joursValidite < delaiDemande + marge()) {
       code = 'renouveler';

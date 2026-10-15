@@ -39,8 +39,9 @@
 
   /* Cellule « dernier passage » modifiable directement dans le rapport. */
   function champPassage(d) {
-    if (Statut.delaiActivite(DB.aeroport(d.aeroportId), d.typeId) === Infinity && !d.dernierPassage) return '';
-    return '<span class="passage"><input type="date" data-passage="' + U.esc(d.id) + '" value="' + U.esc(d.dernierPassage) + '"' +
+    var passage = DB.passage(d.personneId, d.aeroportId);
+    if (Statut.delaiActivite(DB.aeroport(d.aeroportId), d.typeId) === Infinity && !passage) return '';
+    return '<span class="passage"><input type="date" data-passage="' + U.esc(d.id) + '" value="' + U.esc(passage) + '"' +
       ' title="Cliquer pour modifier la date du dernier passage">' +
       '<button class="icone no-print" data-passage-auj="' + U.esc(d.id) + '" title="Passage aujourd\'hui">↻</button></span>';
   }
@@ -50,7 +51,7 @@
     function maj(id, valeur) {
       var d = DB.data.documents.filter(function (x) { return x.id === id; })[0];
       if (!d) return;
-      d.dernierPassage = valeur || null;
+      DB.definirPassage(d.personneId, d.aeroportId, valeur || null);   // vaut pour tous ses badges de cet aéroport
       DB.enregistrer();
       U.toast('Dernier passage enregistré');
       rafraichir();
@@ -188,7 +189,7 @@
         res[sec.code].forEach(function (l) {
           var t = l.d ? DB.type(l.d.typeId) : null;
           lignes.push([sec.titre, l.p.nom, l.p.prenom, DB.nomSociete(l.p.societeId), t ? t.nom : '', l.d ? l.d.numero : '',
-            l.d ? U.fmtDate(l.d.dateExpiration) : '', l.d ? U.fmtDate(l.d.dernierPassage) : '', l.s ? l.s.libelle : 'Pas de badge',
+            l.d ? U.fmtDate(l.d.dateExpiration) : '', l.d ? U.fmtDate(DB.passage(l.p.id, l.d.aeroportId)) : '', l.s ? l.s.libelle : 'Pas de badge',
             l.s && sec.code === 'actif' ? l.s.joursActifs : '', l.s ? l.s.joursValidite : '', a.besoinEscorteur ? escorteurTxt(l.p, a) : '',
             l.s && l.s.demande ? U.fmtDate(l.s.demande.date) : '', l.s && l.s.demande ? U.fmtDate(l.s.demande.arrivee) : '']);
         });
@@ -274,7 +275,7 @@
       var lignes = [['Nom', 'Prénom', 'Société', 'Aéroport', 'Type', 'Numéro', 'Expiration', 'Dernier passage', 'Statut', 'Détail', 'Jours actifs restants', 'Escorteur']];
       lignesPersonne(p).forEach(function (l) {
         lignes.push([p.nom, p.prenom, DB.nomSociete(p.societeId), l.a ? l.a.nom : '', l.t ? l.t.nom : '', l.d.numero,
-          U.fmtDate(l.d.dateExpiration), U.fmtDate(l.d.dernierPassage), l.s.libelle, l.s.detail,
+          U.fmtDate(l.d.dateExpiration), U.fmtDate(DB.passage(p.id, l.d.aeroportId)), l.s.libelle, l.s.detail,
           l.s.joursActifs != null && l.s.joursActifs >= 0 ? l.s.joursActifs : '', l.a && l.a.besoinEscorteur ? escorteurTxt(p, l.a) : '']);
       });
       U.exporterCsv('statut_' + p.nom + '_' + p.prenom + '_' + U.aujourdhui() + '.csv', lignes);
