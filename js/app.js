@@ -27,13 +27,15 @@ var App = (function () {
     var el = document.getElementById('etat-fichier');
     var bandeau = document.getElementById('bandeau');
     document.body.classList.toggle('lecture-seule', !!(DB.data && DB.lectureSeule));
-    if (!DB.data) { el.textContent = 'Aucune base ouverte'; bandeau.hidden = true; return; }
+    if (!DB.data) { el.textContent = 'Aucune base ouverte'; bandeau.hidden = true; document.getElementById('alerte-planning').hidden = true; return; }
     var e = DB.etat;
     var source = DB.mode === 'dossier' ? '📁 ' + DB.nomDossier : '⚠ stockage du navigateur';
     var info = DB.lectureSeule ? '<b>lecture seule</b>'
       : e.erreur ? '<span class="erreur">non enregistré !</span>'
       : e.enregistreLe ? 'enregistré à ' + e.enregistreLe.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' }) : '';
     el.innerHTML = U.esc(source) + (DB.utilisateur() && DB.mode === 'dossier' ? ' · ' + U.esc(DB.utilisateur()) : '') + (info ? ' · ' + info : '');
+
+    majAlertePlanning();
 
     if (DB.lectureSeule) {
       var v = DB.verrouAutre;
@@ -61,6 +63,27 @@ var App = (function () {
     } else {
       bandeau.hidden = true;
     }
+  }
+
+  /* ISO : planning à importer au moins une fois par mois ; alerte après N jours (Configuration). */
+  function majAlertePlanning() {
+    var el = document.getElementById('alerte-planning');
+    var seuil = +DB.data.parametres.alertePlanningJours || 20;
+    var dernier = DB.dernierImportPlanning();
+    var jours = dernier ? U.ecart(U.aujourdhui(), dernier.jour) : null;
+    if (dernier && jours <= seuil) { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = '⚠ ' + (dernier
+      ? 'Le planning n\'a plus été importé depuis <b>' + U.pluriel(jours, 'jour') + '</b> (dernier import le ' +
+        U.fmtDate(dernier.jour) + (dernier.utilisateur ? ' par ' + U.esc(dernier.utilisateur) : '') + ').'
+      : 'Le planning n\'a encore <b>jamais</b> été importé.') +
+      ' Procédure ISO : au moins un import par mois.' +
+      (DB.lectureSeule ? '' : ' <label class="bouton petit">Importer le planning…<input type="file" accept=".xlsx,.xlsm,.xls" hidden></label>');
+    var input = el.querySelector('input[type=file]');
+    if (input) input.onchange = function () {
+      Planning.lancer(input.files[0]).catch(function (e) { U.toast(e.message || String(e), true); })
+        .then(function () { input.value = ''; });
+    };
   }
 
   /* En lecture seule : tout champ est désactivé, sauf dans les zones « filtre » (hors boutons « edition »). */

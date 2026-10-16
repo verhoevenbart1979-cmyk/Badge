@@ -151,7 +151,9 @@
             '<td><b>' + U.fmtDate(c.nouveau) + '</b></td></tr>';
         }).join('') + '</tbody></table></div>'
         : '<div class="carte"><p>Rien à mettre à jour : toutes les dates sont déjà à jour.</p>' +
-          '<button id="pl-annuler" class="secondaire">Fermer</button></div>') +
+          '<p class="aide">Validez quand même pour que l\'import soit enregistré dans le suivi mensuel (ISO).</p>' +
+          '<div class="barre"><button id="pl-annuler" class="secondaire">Annuler</button>' +
+          '<button id="pl-appliquer">Valider l\'import</button></div></div>') +
 
       (r.nonReconnus.length ? '<div class="carte"><h2 style="margin-top:0">Personnes non reconnues (ignorées)</h2>' +
         '<p class="aide">Présentes sur un aéroport dans le planning, mais introuvables dans la base (ou plusieurs correspondances possibles).</p>' +
@@ -177,13 +179,21 @@
     var appliquer = el.querySelector('#pl-appliquer');
     if (appliquer) appliquer.onclick = function () {
       var choisis = r.changements.filter(function (c) { return c.appliquer; });
-      if (!choisis.length) { U.toast('Aucune ligne cochée.', true); return; }
+      if (r.changements.length && !choisis.length &&
+          !confirm('Aucune ligne cochée : aucune date ne sera modifiée.\n\nEnregistrer quand même l\'import du planning ?')) return;
       choisis.forEach(function (c) {
         var actuel = DB.passage(c.personneId, c.aeroportId);   // la base a pu changer entre-temps
         if (!actuel || actuel < c.nouveau) DB.definirPassage(c.personneId, c.aeroportId, c.nouveau);
       });
+      // ISO : chaque import validé est consigné (date, utilisateur, fichier, nombre de dates)
+      DB.data.historiquePlanning.push({
+        id: U.uid('ip'), jour: U.aujourdhui(),
+        heure: new Date().toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' }), utilisateur: DB.utilisateur() || '',
+        fichier: r.fichier, periode: r.debut + ' → ' + r.fin, misesAJour: choisis.length
+      });
       DB.enregistrer().then(function () {
-        U.toast(U.pluriel(choisis.length, 'date') + ' de dernier passage mise' + (choisis.length > 1 ? 's' : '') + ' à jour.');
+        U.toast('Import du planning enregistré · ' + U.pluriel(choisis.length, 'date') + ' de dernier passage mise' +
+          (choisis.length > 1 ? 's' : '') + ' à jour.');
       });
       resultat = null;
       App.aller('#/personnes');

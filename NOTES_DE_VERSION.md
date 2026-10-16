@@ -1,5 +1,17 @@
 # Notes de version — Suivi des badges
 
+## Version 4.3
+
+### Suivi ISO de l'import du planning (au moins 1 fois par mois)
+
+- Chaque import validé du planning est enregistré : date, heure, utilisateur, fichier, nombre de dates mises à jour.
+  Un import sans changement se valide aussi (« Valider l'import ») pour être compté.
+- Bandeau orange sur tous les écrans quand le dernier import date de plus de **20 jours**
+  (réglable dans *Configuration → Paramètres généraux*), avec un bouton « Importer le planning… ».
+- *Rapports → Suivi du planning (ISO)* : par mois, le nombre d'imports et l'état
+  (conforme / non conforme : aucun import / mois en cours / à venir), les mois sans import inclus ;
+  détail des imports ; impression et export Excel. Le suivi commence au mois d'installation de cette version.
+
 ## Version 4.2
 
 - **Dernier passage par aéroport** : une seule date par personne et par aéroport, valable pour tous ses badges

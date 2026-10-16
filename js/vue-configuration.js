@@ -32,6 +32,8 @@
       U.options(societes.map(function (s) { return { value: s.id, label: s.nom }; }), p.societeDefaut, 'Toutes les sociétés') + '</select></div>' +
       '<div class="champ"><label>Alerte orange « à renouveler » : jours avant le délai de demande</label>' +
       '<input type="number" min="0" data-param="margeRenouvellement" value="' + U.esc(p.margeRenouvellement) + '"></div>' +
+      '<div class="champ"><label>Alerte « planning non importé » après (jours)</label>' +
+      '<input type="number" min="1" data-param="alertePlanningJours" value="' + U.esc(p.alertePlanningJours) + '"></div>' +
       '</div><p class="aide">Exemple : délai de demande 90 j et marge 30 j → orange à partir de 120 jours avant l\'expiration, ' +
       '⚠ Attention à partir de 90 jours (plus assez de temps pour obtenir un nouveau badge).</p></div>' +
 

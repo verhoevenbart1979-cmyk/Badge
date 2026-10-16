@@ -22,7 +22,7 @@
 
   function onglets(actif) {
     return '<div class="sous-onglets">' + [
-      ['aeroport', 'Par aéroport'], ['personne', 'Par personne'], ['matrice', 'Matrice']
+      ['aeroport', 'Par aéroport'], ['personne', 'Par personne'], ['matrice', 'Matrice'], ['planning', 'Suivi du planning (ISO)']
     ].map(function (o) {
       return '<a href="#/rapports/' + o[0] + '"' + (o[0] === actif ? ' class="actif"' : '') + '>' + o[1] + '</a>';
     }).join('') + '</div>';
@@ -466,10 +466,94 @@
     };
   }
 
+  /* ======================= 4. SUIVI DU PLANNING (ISO) ======================= */
+  /*
+   * Procédure ISO : au moins un import du planning par mois. Pour chaque mois : nombre
+   * d'imports, conforme (≥ 1), non conforme (0, mois terminé), en cours (mois actuel),
+   * non suivi (avant le début du suivi) ou à venir.
+   */
+  var MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+
+  function moisPlanning(annee) {
+    var aujourdhui = U.aujourdhui(), moisActuel = aujourdhui.slice(0, 7);
+    var hist = DB.data.historiquePlanning;
+    var debut = DB.data.parametres.suiviPlanningDepuis;
+    hist.forEach(function (h) { if (h.jour.slice(0, 7) < debut) debut = h.jour.slice(0, 7); });
+    return MOIS.map(function (nom, i) {
+      var cle = annee + '-' + (i < 9 ? '0' : '') + (i + 1);
+      var imports = hist.filter(function (h) { return h.jour.slice(0, 7) === cle; });
+      var etat = cle > moisActuel ? 'avenir' : cle < debut ? 'nonsuivi' : imports.length ? 'ok' : cle === moisActuel ? 'encours' : 'ko';
+      return { cle: cle, nom: nom, imports: imports, etat: etat };
+    });
+  }
+
+  var ETATS_ISO = {
+    ok: { texte: 'Conforme', classe: 'iso-ok', icone: '✔' },
+    ko: { texte: 'Non conforme : aucun import', classe: 'iso-ko', icone: '✘' },
+    encours: { texte: 'Mois en cours : import à faire', classe: 'iso-encours', icone: '…' },
+    nonsuivi: { texte: 'Avant le début du suivi', classe: 'aide', icone: '–' },
+    avenir: { texte: 'À venir', classe: 'aide', icone: '' }
+  };
+
+  function rapportPlanning(el) {
+    var anneeActuelle = +U.aujourdhui().slice(0, 4);
+    var premiere = anneeActuelle;
+    DB.data.historiquePlanning.forEach(function (h) { premiere = Math.min(premiere, +h.jour.slice(0, 4)); });
+    premiere = Math.min(premiere, +DB.data.parametres.suiviPlanningDepuis.slice(0, 4));
+    if (!choix.anneePlanning) choix.anneePlanning = anneeActuelle;
+    var annees = [];
+    for (var a = anneeActuelle; a >= premiere; a--) annees.push({ value: String(a), label: String(a) });
+
+    el.innerHTML = '<h1>Rapports</h1>' + onglets('planning') +
+      '<div class="barre filtre"><select id="pl-annee">' + U.options(annees, String(choix.anneePlanning)) + '</select>' +
+      '<span class="aide">Procédure ISO : au moins un import du planning par mois.</span>' +
+      '<div class="droite"><button class="secondaire" id="pl-csv">Exporter (Excel)</button><button class="secondaire" onclick="window.print()">Imprimer</button></div></div>' +
+      '<div id="pl-res"></div>';
+
+    var zone = el.querySelector('#pl-res');
+    function remplir() {
+      var mois = moisPlanning(choix.anneePlanning);
+      var suivis = mois.filter(function (m) { return m.etat === 'ok' || m.etat === 'ko'; });
+      var conformes = suivis.filter(function (m) { return m.etat === 'ok'; }).length;
+      var imports = DB.data.historiquePlanning.filter(function (h) { return h.jour.slice(0, 4) === String(choix.anneePlanning); })
+        .sort(function (x, y) { return (y.jour + y.heure) < (x.jour + x.heure) ? -1 : 1; });
+      var dernier = DB.dernierImportPlanning();
+      zone.innerHTML = '<div class="carte">' +
+        '<div class="titre-imprime">Suivi des imports du planning — ' + choix.anneePlanning + ' — situation au ' + U.fmtDate(U.aujourdhui()) + '</div>' +
+        '<p><b>' + conformes + ' mois conforme' + (conformes > 1 ? 's' : '') + ' sur ' + suivis.length + '</b> mois terminés suivis' +
+        (dernier ? ' · dernier import le ' + U.fmtDate(dernier.jour) + ' (il y a ' + U.pluriel(U.ecart(U.aujourdhui(), dernier.jour), 'jour') + ')' : ' · aucun import enregistré') +
+        ' · suivi depuis ' + U.fmtDate(DB.data.parametres.suiviPlanningDepuis + '-01').slice(3) + '</p>' +
+        '<table style="max-width:720px"><thead><tr><th>Mois</th><th class="num">Imports</th><th>État</th><th>Dates des imports</th></tr></thead><tbody>' +
+        mois.map(function (m) {
+          var e = ETATS_ISO[m.etat];
+          return '<tr><td>' + m.nom + '</td><td class="num"><b>' + (m.etat === 'avenir' || m.etat === 'nonsuivi' ? '' : m.imports.length) + '</b></td>' +
+            '<td class="' + e.classe + '">' + e.icone + ' ' + e.texte + '</td>' +
+            '<td>' + m.imports.map(function (h) { return U.fmtDate(h.jour).slice(0, 5); }).join(', ') + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<div class="carte"><h2 style="margin-top:0">Détail des imports ' + choix.anneePlanning + '</h2>' +
+        (imports.length ? '<table><thead><tr><th>Date</th><th>Heure</th><th>Par</th><th>Fichier</th><th>Période du planning</th><th class="num">Dates mises à jour</th></tr></thead><tbody>' +
+          imports.map(function (h) {
+            return '<tr><td>' + U.fmtDate(h.jour) + '</td><td>' + U.esc(h.heure) + '</td><td>' + U.esc(h.utilisateur) + '</td><td>' + U.esc(h.fichier) + '</td>' +
+              '<td>' + U.esc(String(h.periode || '').split(' → ').map(U.fmtDate).join(' → ')) + '</td><td class="num">' + h.misesAJour + '</td></tr>';
+          }).join('') + '</tbody></table>' : '<p class="vide">Aucun import cette année.</p>') + '</div>';
+    }
+    remplir();
+    el.querySelector('#pl-annee').onchange = function () { choix.anneePlanning = +this.value; remplir(); };
+    el.querySelector('#pl-csv').onclick = function () {
+      var lignes = [['Mois', 'Imports', 'État', 'Dates des imports']];
+      moisPlanning(choix.anneePlanning).forEach(function (m) {
+        lignes.push([m.nom + ' ' + choix.anneePlanning, m.etat === 'avenir' || m.etat === 'nonsuivi' ? '' : m.imports.length, ETATS_ISO[m.etat].texte,
+          m.imports.map(function (h) { return U.fmtDate(h.jour) + ' ' + h.heure + (h.utilisateur ? ' (' + h.utilisateur + ')' : ''); }).join(' ; ')]);
+      });
+      U.exporterCsv('suivi_planning_' + choix.anneePlanning + '.csv', lignes);
+    };
+  }
+
   App.enregistrerVue('rapports', function (el, params) {
     var sous = params[0] || 'aeroport';
     if (sous === 'personne') rapportPersonne(el, params.slice(1));
     else if (sous === 'matrice') rapportMatrice(el);
+    else if (sous === 'planning') rapportPlanning(el);
     else rapportAeroport(el, params.slice(1));
   });
 })();

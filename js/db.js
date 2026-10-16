@@ -176,6 +176,11 @@ var DB = (function () {
     d.projets.forEach(function (pr) { if (pr.commentaire == null) pr.commentaire = ''; if (pr.aeroportId === undefined) pr.aeroportId = null; });
     var p = d.parametres = d.parametres || {};
     if (p.margeRenouvellement == null) p.margeRenouvellement = 30;
+    if (p.alertePlanningJours == null) p.alertePlanningJours = 20;
+    // ISO : journal des imports du planning (au moins 1 par mois)
+    if (!Array.isArray(d.historiquePlanning)) d.historiquePlanning = [];
+    // début du suivi mensuel : le mois où cette version est utilisée pour la première fois
+    if (!p.suiviPlanningDepuis) p.suiviPlanningDepuis = U.aujourdhui().slice(0, 7);
     if (p.societeDefaut === undefined) {
       var jdc = d.societes.filter(function (s) { return String(s.nom).trim().toUpperCase() === 'JDC'; })[0];
       p.societeDefaut = jdc ? jdc.id : '';
@@ -512,6 +517,12 @@ var DB = (function () {
     type: function (id) { return parId(data.typesBadge, id); },
     societe: function (id) { return parId(data.societes, id); },
     personne: function (id) { return parId(data.personnes, id); },
+    /* Dernier import du planning (entrée du journal) ou null. */
+    dernierImportPlanning: function () {
+      return data.historiquePlanning.reduce(function (m, h) {
+        return !m || h.jour + (h.heure || '') > m.jour + (m.heure || '') ? h : m;
+      }, null);
+    },
     /* Dernier passage d'une personne sur un aéroport (une seule date par personne × aéroport). */
     passage: function (personneId, aeroportId) {
       var p = personneId && parId(data.personnes, personneId);

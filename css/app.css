@@ -119,6 +119,13 @@ button.petit { padding: 2px 8px; font-size: 12px; }
 .table-vehicules td.cel-vehicule .aide { display: block; margin-top: 2px; }
 .vehicules-personne { margin: 10px 0 0; }
 
+/* alerte ISO : planning non importé */
+.alerte-planning { background: var(--orange-fond); border-bottom: 1px solid #f3c48f; color: #7a3f06; padding: 8px 20px; font-size: 13px; }
+.alerte-planning .bouton { margin-left: 8px; padding: 3px 10px; font-size: 12px; }
+.iso-ok { color: var(--vert); font-weight: 700; }
+.iso-ko { color: var(--rouge); font-weight: 700; }
+.iso-encours { color: var(--orange); font-weight: 700; }
+
 /* lecture seule */
 .bandeau { background: var(--jaune-fond); border-bottom: 1px solid #e8d27a; padding: 8px 20px; font-size: 13px; }
 .bandeau button { padding: 3px 10px; font-size: 12px; margin-left: 6px; }
@@ -169,7 +176,7 @@ body.lecture-seule .entete { background: #6b5b1f; }
   main { padding: 0; max-width: none; }
   .carte { border: none; padding: 0; }
   .passage input[type=date]::-webkit-calendar-picker-indicator { display: none; }
-  .bandeau { display: none !important; }
+  .bandeau, .alerte-planning { display: none !important; }
   .matrice .masque, .table-vehicules .masque { display: none; }
   .titre-imprime { display: block; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
   .matrice-cadre { overflow: visible; max-height: none; border: none; }
