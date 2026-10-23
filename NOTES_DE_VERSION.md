@@ -1,5 +1,18 @@
 # Notes de version — Suivi des badges
 
+## Version 4.5
+
+### PC qui reste allumé / démarrage automatique
+
+- **Demarrer_SuiviBadges.bat** (dans le dossier de l'application) ouvre l'application dans Chrome.
+  Un raccourci vers ce fichier dans le dossier « Démarrage » de Windows (`shell:startup`) l'ouvre à chaque démarrage.
+- Si Chrome a gardé l'autorisation d'accès au dossier, la base s'ouvre **sans clic**.
+- **Onglet resté ouvert la nuit** : au changement de jour, l'application fait elle-même la sauvegarde
+  et l'export Excel du jour (sans devoir fermer et rouvrir).
+- **Mise en veille** après 30 minutes sans activité : la base est libérée pour les collègues
+  (bandeau « En veille »). Un clic ou une touche suffit pour reprendre la main, si personne d'autre ne travaille dans la base.
+- Deuxième onglet ouvert sur le même PC : message clair « déjà ouverte dans un autre onglet ».
+
 ## Version 4.4
 
 ### Export Excel de secours

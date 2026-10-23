@@ -56,6 +56,12 @@
       b.hidden = false;
       b.textContent = 'Rouvrir le dossier « ' + h.name + ' »';
       b.onclick = function () { DB.rouvrir(h).then(apresOuverture, erreur); };
+      // Chrome a gardé l'autorisation (« Autoriser à chaque visite ») : ouverture directe, sans clic
+      if (h.queryPermission) h.queryPermission({ mode: 'readwrite' }).then(function (p) {
+        if (p !== 'granted' || DB.data) return;
+        b.textContent = 'Ouverture de « ' + h.name + ' »…';
+        DB.rouvrir(h).then(apresOuverture, erreur);
+      }).catch(function () {});
     });
     var o = el.querySelector('#btn-ouvrir');
     if (o) o.onclick = function () { DB.ouvrirDossier().then(apresOuverture, erreur); };

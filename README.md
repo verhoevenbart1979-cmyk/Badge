@@ -14,6 +14,16 @@ Draait volledig in **Google Chrome** (of Edge), zonder installatie, zonder serve
 
 Elke wijziging wordt meteen in `badges.json` bewaard (rechtsboven: « enregistré à … »).
 
+## Automatisch starten met Windows
+
+1. In de map van de applicatie staat **`Demarrer_SuiviBadges.bat`**: dubbelklikken opent de applicatie in Chrome.
+2. Druk op **Windows + R**, typ **`shell:startup`** en druk op Enter: de map *Opstarten* opent.
+3. Sleep `Demarrer_SuiviBadges.bat` **met de rechtermuisknop** naar die map en kies **"Snelkoppeling hier maken"**.
+
+Blijft de pc dagen aanstaan, dan hoeft er niets te gebeuren: een open tabblad doet bij de datumwissel zelf de
+back-up en de Excel-export, en geeft na 30 minuten zonder activiteit het slot vrij voor collega's
+(één klik om verder te werken).
+
 ## Meerdere gebruikers
 
 - Wie de databank opent, zet een slot (`badges.lock`). Een tweede gebruiker opent de databank

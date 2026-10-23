@@ -36,6 +36,11 @@ var DB = (function () {
   var derniereModif = null;    // lastModified de badges.json au dernier chargement/écriture
   var fileEcriture = Promise.resolve();
   var minuteur = null;
+  // tabblad dat dagen open blijft : mise en veille et passage de jour
+  var VEILLE_MS = 30 * 60 * 1000;          // 30 min sans activité → le verrou est libéré
+  var enVeille = false;
+  var derniereActivite = Date.now();
+  var jourTraite = null;                   // jour de la dernière sauvegarde / export quotidiens
   var etat = { enregistreLe: null, erreur: null };
   var ecouteurs = [];
   var session = Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -272,6 +277,52 @@ var DB = (function () {
 
   /* À la fermeture : un seul appel direct, pour avoir une chance d'aboutir avant la fin de la page.
      S'il n'aboutit pas, le verrou expire de lui-même après 5 minutes. */
+  /* Après 30 min sans activité : on libère la base pour les collègues (lecture seule « en veille »). */
+  function mettreEnVeille() {
+    var fin = fileEcriture.catch(function () {});
+    fin.then(lireVerrou).then(function (v) {
+      if (v && v.session === session) return dossier.removeEntry(NOM_VERROU);
+    }).catch(function () {}).then(function () {
+      lectureSeule = true;
+      enVeille = true;
+      verrouAutre = null;
+      notifier();
+    });
+  }
+
+  /* Au premier clic ou à la première touche après la veille : reprendre la main si la base est libre. */
+  function reprendre() {
+    if (!enVeille) return Promise.resolve();
+    enVeille = false;
+    return chargerDossier(dossier, false).then(function () {
+      if (lectureSeule) U.toast('La base est maintenant utilisée par ' + (verrouAutre ? verrouAutre.utilisateur : 'quelqu\'un d\'autre') + ' : lecture seule.', true);
+      else U.toast('Vous pouvez à nouveau modifier la base.');
+      App.afficher();
+    });
+  }
+
+  ['mousedown', 'keydown', 'touchstart', 'wheel'].forEach(function (ev) {
+    window.addEventListener(ev, function () {
+      derniereActivite = Date.now();
+      if (enVeille && ev !== 'wheel') reprendre();
+    }, true);
+  });
+
+  /*
+   * L'onglet est resté ouvert pendant la nuit : sauvegarde et export Excel du nouveau jour.
+   * En veille ou en lecture seule, on prend le verrou juste le temps de le faire, si la base est libre ;
+   * sinon c'est l'onglet qui modifie la base qui s'en charge.
+   */
+  function changementDeJour() {
+    jourTraite = U.aujourdhui();
+    var faire = function () { return sauvegardeDuJour().then(exportExcelDuJour); };
+    if (!lectureSeule) return faire();
+    return lireVerrou().then(function (v) {
+      if (verrouValide(v)) return;
+      return ecrireVerrou().then(faire).then(function () { return dossier.removeEntry(NOM_VERROU); });
+    }).catch(function (e) { console.warn('Tâches du jour impossibles', e); });
+  }
+
   function libererVerrou() {
     if (mode !== 'dossier' || lectureSeule || !dossier) return;
     dossier.removeEntry(NOM_VERROU).catch(function () {});
@@ -280,6 +331,8 @@ var DB = (function () {
   /* Toutes les minutes : garder le verrou (ou suivre les changements en lecture seule). */
   function battement() {
     if (mode !== 'dossier') return;
+    if (jourTraite && U.aujourdhui() !== jourTraite) changementDeJour();
+    if (!lectureSeule && Date.now() - derniereActivite > VEILLE_MS) { mettreEnVeille(); return; }
     if (!lectureSeule) {
       lireVerrou().then(function (v) {
         if (v && v.session !== session) {
@@ -367,6 +420,9 @@ var DB = (function () {
       return prendreVerrou(forcerVerrou);
     }).then(function (peutModifier) {
       lectureSeule = !peutModifier;
+      enVeille = false;
+      derniereActivite = Date.now();
+      jourTraite = U.aujourdhui();
       copieSecurite();
       clearInterval(minuteur);
       minuteur = setInterval(battement, BATTEMENT_MS);
@@ -511,6 +567,9 @@ var DB = (function () {
     get nomDossier() { return dossier ? dossier.name : null; },
     get lectureSeule() { return lectureSeule; },
     get verrouAutre() { return verrouAutre; },
+    get enVeille() { return enVeille; },
+    get poste() { return poste(); },
+    reprendre: reprendre,
     get etat() { return etat; },
     NOM_FICHIER: NOM_FICHIER,
     dossiersSupportes: dossiersSupportes,

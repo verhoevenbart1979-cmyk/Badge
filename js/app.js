@@ -37,7 +37,22 @@ var App = (function () {
 
     majAlertePlanning();
 
-    if (DB.lectureSeule) {
+    if (DB.enVeille) {
+      bandeau.hidden = false;
+      bandeau.innerHTML = '⏸ <b>En veille</b> : 30 minutes sans activité, la base a été libérée pour vos collègues. ' +
+        'Cliquez n\'importe où pour reprendre. <button class="secondaire" id="btn-reprendre">Reprendre</button>';
+      bandeau.querySelector('#btn-reprendre').onclick = function () { DB.reprendre(); };
+      desactiverSaisies(document.getElementById('vue'));
+    } else if (DB.lectureSeule && DB.verrouAutre && DB.verrouAutre.poste && DB.verrouAutre.poste === DB.poste) {
+      bandeau.hidden = false;
+      bandeau.innerHTML = '🔒 <b>L\'application est déjà ouverte dans un autre onglet</b> de ce navigateur. ' +
+        'Fermez cet onglet-ci et utilisez l\'autre (ou fermez l\'autre puis cliquez sur « Réessayer »). ' +
+        '<button class="secondaire" id="btn-reessayer">Réessayer</button>';
+      bandeau.querySelector('#btn-reessayer').onclick = function () {
+        DB.reessayer().then(afficher, function (e) { U.toast(e.message, true); });
+      };
+      desactiverSaisies(document.getElementById('vue'));
+    } else if (DB.lectureSeule) {
       var v = DB.verrouAutre;
       bandeau.hidden = false;
       bandeau.innerHTML = '🔒 <b>Lecture seule</b> : ' + (v
