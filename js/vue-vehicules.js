@@ -116,7 +116,7 @@
     var zone = el.querySelector('#v-res');
     function remplir(impression) {
       var aujourdhui = U.aujourdhui();
-      if (!aers.length) { zone.innerHTML = '<p class="vide">Aucun aéroport n\'est coché « Badges véhicules » dans la Configuration.</p>'; return; }
+      if (!aers.length) { zone.innerHTML = '<p class="vide">Aucun badge véhicule pour l\'instant : ouvrez un véhicule et ajoutez-lui un badge.</p>'; return; }
       var cols = colonnes(aujourdhui).filter(function (c) { return !impression || !colMasquee(c.cle); });
       var vs = vehiculesFiltres(impression);
       var coche = function (attr, ok, titre) {
@@ -244,8 +244,6 @@
     if (v.chauffeurId && !personnes.some(function (p) { return p.id === v.chauffeurId; }) && DB.personne(v.chauffeurId)) {
       personnes.push(DB.personne(v.chauffeurId));   // chauffeur archivé : rester visible
     }
-    var aers = DB.aeroportsVehicules();
-
     el.innerHTML =
       '<div class="barre"><a href="#/vehicules">← Retour aux véhicules</a>' +
       '<div class="droite"><button id="btn-suppr" class="danger">Supprimer le véhicule</button></div></div>' +
@@ -261,17 +259,9 @@
       champ('&nbsp;', '<label><input type="checkbox" id="f-actif"' + (v.actif ? ' checked' : '') + '> Véhicule actif</label>') +
       champ('Remarque', '<input type="text" id="f-remarque" value="' + U.esc(v.remarque) + '" style="width:320px">') +
       '</div>' + (v.actif ? '' : '<p class="aide">Véhicule inactif (vendu) : il n\'apparaît plus dans les tableaux.</p>') + '</div>' +
-      '<div class="carte"><h2 style="margin-top:0">Badges véhicule</h2>' +
-      (aers.length ? '<table class="table-saisie"><thead><tr><th>Aéroport</th><th>N° de badge</th><th>Date de validité</th><th>Statut</th>' +
-        '<th class="num">Jours de validité</th></tr></thead><tbody>' +
-        aers.map(function (a) {
-          var b = v.badges[a.id] || {};
-          return '<tr data-aer="' + U.esc(a.id) + '"><td>' + U.esc(a.nom) + '<div class="aide">délai de demande : ' + a.delaiDemandeVehicule + ' j</div></td>' +
-            '<td><input type="text" data-champ="numero" value="' + U.esc(b.numero) + '"></td>' +
-            '<td><input type="date" data-champ="dateExpiration" value="' + U.esc(b.dateExpiration) + '"></td>' +
-            '<td class="cellule-statut"><span data-pastille></span><div data-demande></div></td><td class="num" data-jours></td></tr>';
-        }).join('') + '</tbody></table>' + legende(['valide', 'renouveler', 'demande', 'attention', 'inconnu', 'expire'])
-        : '<p class="vide">Aucun aéroport n\'est coché « Badges véhicules » dans la Configuration.</p>') + '</div>';
+      '<div class="carte"><div class="barre"><h2 style="margin:0">Badges véhicule</h2>' +
+      '<div class="droite"><select id="f-aer-ajout"></select><button id="btn-ajout-badge">+ Ajouter un badge véhicule</button></div></div>' +
+      '<div id="badges-v"></div>' + legende(['valide', 'renouveler', 'demande', 'attention', 'inconnu', 'expire']) + '</div>';
 
     var maj = function (sel, fn) { el.querySelector(sel).onchange = function () { fn(this); DB.enregistrer(); }; };
     maj('#f-immat', function (i) { i.value = i.value.trim().toUpperCase(); v.immatriculation = i.value; });
@@ -296,11 +286,45 @@
       App.aller('#/vehicules');
     };
 
-    var lignes = el.querySelectorAll('tr[data-aer]');
-    lignes.forEach(function (tr) { majDemande(v, tr); majLigne(v, tr); });
-    var table = el.querySelector('.table-saisie');
-    if (!table) return;
-    table.onchange = function (e) {
+    var zone = el.querySelector('#badges-v');
+    tableBadges(zone, el, v);
+    el.querySelector('#btn-ajout-badge').onclick = function () {
+      var aid = el.querySelector('#f-aer-ajout').value;
+      if (!aid) { U.toast('Choisissez d\'abord un aéroport.', true); return; }
+      v.badges[aid] = { numero: null, dateExpiration: null, dateDemande: null, remarque: null };
+      DB.enregistrer();
+      tableBadges(zone, el, v);
+      var champ = zone.querySelector('tr[data-aer="' + aid + '"] [data-champ="numero"]');
+      if (champ) champ.focus();
+    };
+  }
+
+  /* Un badge par aéroport ; on ajoute un aéroport avec la liste + « Ajouter », comme pour les personnes. */
+  function tableBadges(zone, el, v) {
+    var ids = Object.keys(v.badges).filter(function (k) { return DB.aeroport(k); }).sort(function (x, y) {
+      return U.comparer(DB.aeroport(x).nom, DB.aeroport(y).nom);
+    });
+    var libres = DB.aeroportsTries().filter(function (a) { return ids.indexOf(a.id) < 0; });
+    el.querySelector('#f-aer-ajout').innerHTML = U.options(libres.map(function (a) { return { value: a.id, label: a.nom }; }), '', '— aéroport —');
+    el.querySelector('#btn-ajout-badge').disabled = !libres.length || DB.lectureSeule;
+    if (!ids.length) {
+      zone.innerHTML = '<p class="vide">Aucun badge véhicule. Choisissez un aéroport à droite puis cliquez sur « + Ajouter un badge véhicule ».</p>';
+      return;
+    }
+    zone.innerHTML = '<table class="table-saisie"><thead><tr><th>Aéroport</th><th>N° de badge</th><th>Date de validité</th><th>Statut</th>' +
+      '<th class="num">Jours de validité</th><th>Remarque</th><th></th></tr></thead><tbody>' +
+      ids.map(function (id) {
+        var a = DB.aeroport(id), b = v.badges[id];
+        return '<tr data-aer="' + U.esc(id) + '"><td>' + U.esc(a.nom) + '<div class="aide">délai de demande : ' + a.delaiDemandeVehicule + ' j</div></td>' +
+          '<td><input type="text" data-champ="numero" value="' + U.esc(b.numero) + '"></td>' +
+          '<td><input type="date" data-champ="dateExpiration" value="' + U.esc(b.dateExpiration) + '"></td>' +
+          '<td class="cellule-statut"><span data-pastille></span><div data-demande></div></td><td class="num" data-jours></td>' +
+          '<td><input type="text" data-champ="remarque" value="' + U.esc(b.remarque) + '"></td>' +
+          '<td><button class="icone" data-action="suppr" title="Supprimer ce badge">🗑</button></td></tr>';
+      }).join('') + '</tbody></table>';
+    zone.querySelectorAll('tr[data-aer]').forEach(function (tr) { majDemande(v, tr); majLigne(v, tr); });
+
+    zone.onchange = function (e) {
       var champ = e.target.getAttribute('data-champ'), tr = e.target.closest('tr[data-aer]');
       if (!champ || !tr) return;
       var b = badge(v, tr), val = e.target.value.trim() || null, ancien = b[champ];
@@ -314,10 +338,17 @@
       DB.enregistrer();
       majLigne(v, tr);
     };
-    table.onclick = function (e) {
+    zone.onclick = function (e) {
       var action = e.target.getAttribute('data-action'), tr = e.target.closest('tr[data-aer]');
       if (!action || !tr) return;
       var b = badge(v, tr);
+      if (action === 'suppr') {
+        if (!confirm('Supprimer le badge véhicule de ' + DB.aeroport(tr.getAttribute('data-aer')).nom + ' ?')) return;
+        delete v.badges[tr.getAttribute('data-aer')];
+        DB.enregistrer();
+        tableBadges(zone, el, v);
+        return;
+      }
       if (action === 'demande') b.dateDemande = U.aujourdhui();
       else if (action === 'recu' || action === 'annuler-demande') {
         if (action === 'annuler-demande' && !confirm('Annuler la demande en cours ?')) return;
@@ -343,7 +374,7 @@
 
   function badge(v, tr) {
     var a = tr.getAttribute('data-aer');
-    if (!v.badges[a]) v.badges[a] = { numero: null, dateExpiration: null, dateDemande: null };
+    if (!v.badges[a]) v.badges[a] = { numero: null, dateExpiration: null, dateDemande: null, remarque: null };
     return v.badges[a];
   }
 

@@ -1,5 +1,14 @@
 # Notes de version — Suivi des badges
 
+## Version 4.6
+
+- **Badges véhicules dynamiques**, comme pour les personnes : dans la fiche d'un véhicule, choisissez un aéroport
+  (n'importe lequel) et cliquez sur « + Ajouter un badge véhicule ». Un badge par aéroport, avec numéro, date de validité,
+  demande lancée, remarque et corbeille pour le supprimer.
+- La liste des véhicules montre automatiquement une colonne pour chaque aéroport où un véhicule a un badge
+  (la case « Badges véhicules » de la Configuration force en plus une colonne pour un aéroport).
+- Les lignes vides des anciennes fiches sont retirées automatiquement.
+
 ## Version 4.5
 
 ### PC qui reste allumé / démarrage automatique

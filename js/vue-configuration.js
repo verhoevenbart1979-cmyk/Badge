@@ -42,7 +42,7 @@
       '<table class="table-saisie"><thead><tr><th>Code</th><th>Nom</th>' +
       '<th class="num" title="Temps nécessaire pour obtenir un nouveau badge">Délai demande de badge (jours)</th>' +
       '<th class="num" title="Après combien de jours sans passage le badge n\'est plus actif (valeur par défaut pour tous les types)">Délai dernier passage (jours)</th>' +
-      '<th>Besoin escorteur</th><th>Badges véhicules</th>' +
+      '<th>Besoin escorteur</th><th title="Toujours une colonne dans la liste des véhicules (un aéroport où un véhicule a un badge apparaît de toute façon)">Badges véhicules</th>' +
       '<th class="num" title="Temps nécessaire pour obtenir un badge véhicule">Délai demande véhicule (jours)</th>' +
       '<th>Colonnes dans la matrice</th><th>Remarque</th><th></th></tr></thead><tbody>' +
       (aeroports.length ? aeroports.map(function (a) {

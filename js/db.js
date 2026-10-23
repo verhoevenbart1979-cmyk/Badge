@@ -199,6 +199,11 @@ var DB = (function () {
     d.vehicules.forEach(function (v) {
       if (v.actif == null) v.actif = true;
       if (!v.badges || typeof v.badges !== 'object') v.badges = {};
+      // lignes vides laissées par l'ancienne fiche (toutes les lignes affichées d'office) : on les retire
+      Object.keys(v.badges).forEach(function (k) {
+        var b = v.badges[k];
+        if (!b || !(b.numero || b.dateExpiration || b.dateDemande || b.remarque)) delete v.badges[k];
+      });
       if (v.chauffeurId === undefined) v.chauffeurId = null;
       if (v.societeId === undefined) {
         var ch = v.chauffeurId && d.personnes.filter(function (pe) { return pe.id === v.chauffeurId; })[0];
@@ -639,8 +644,11 @@ var DB = (function () {
     vehiculesDe: function (personneId) {
       return data.vehicules.filter(function (v) { return v.chauffeurId === personneId && v.actif; });
     },
+    /* Colonnes « véhicules » : aéroports cochés « Badges véhicules » + ceux où un véhicule a un badge. */
     aeroportsVehicules: function () {
-      return data.aeroports.filter(function (a) { return a.badgesVehicules; }).sort(function (a, b) { return U.comparer(a.nom, b.nom); });
+      var utilises = {};
+      data.vehicules.forEach(function (v) { Object.keys(v.badges).forEach(function (k) { utilises[k] = true; }); });
+      return data.aeroports.filter(function (a) { return a.badgesVehicules || utilises[a.id]; }).sort(function (a, b) { return U.comparer(a.nom, b.nom); });
     },
     typeParDefaut: function () {
       return data.typesBadge.filter(function (t) { return t.parDefaut; })[0] || data.typesBadge[0] || null;
