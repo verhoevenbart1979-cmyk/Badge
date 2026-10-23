@@ -86,6 +86,14 @@
       (DB.mode === 'dossier' ? '<button id="btn-recharger" class="secondaire">Recharger</button>' : '') +
       '</div></div>' +
 
+      (DB.mode === 'dossier' ? '<div class="carte"><h2 style="margin-top:0">Export Excel de secours</h2>' +
+        '<p class="aide">Chaque jour, à la première ouverture, l\'application remplace le fichier <b>' + U.esc(ExportExcel.NOM_FICHIER) +
+        '</b> dans le dossier de la base. Il contient toutes les données jusqu\'à la veille et se lit avec Excel, sans l\'application. ' +
+        'En cas de panne : faites-en une copie et travaillez dans la copie.</p>' +
+        '<p id="info-export" class="aide">…</p>' +
+        '<div class="barre filtre"><button id="btn-export-xlsx" class="secondaire edition">Mettre à jour l\'export maintenant</button>' +
+        '<button id="btn-export-dl" class="secondaire">Télécharger une copie Excel</button></div></div>' : '') +
+
       (DB.mode === 'dossier' ? '<div class="carte"><h2 style="margin-top:0">Sauvegardes automatiques</h2>' +
         '<p class="aide">Chaque jour, à la première ouverture en modification, une copie est enregistrée dans le sous-dossier ' +
         '<b>sauvegardes</b> (les 30 dernières sont gardées).</p><div id="liste-sauvegardes" class="aide">Chargement…</div></div>' : '') +
@@ -118,6 +126,24 @@
         return DB.remplacer(nouv).then(function () { U.toast('Sauvegarde restaurée'); App.afficher(); });
       }).catch(erreur).then(function () { input.value = ''; });
     };
+
+    var infoExport = el.querySelector('#info-export');
+    function majInfoExport() {
+      if (!infoExport) return;
+      DB.dateExportExcel().then(function (e) {
+        infoExport.innerHTML = e ? 'Dernière mise à jour : <b>' + e.date.toLocaleString('fr-BE') + '</b>' : 'Pas encore d\'export.';
+      });
+    }
+    majInfoExport();
+    on('#btn-export-xlsx', function () {
+      DB.exporterExcelMaintenant().then(function () { U.toast('Export Excel mis à jour.'); majInfoExport(); }, function (e) {
+        erreur(new Error('Export impossible : ' + (e.message || e) + ' (le fichier est peut-être ouvert dans Excel).'));
+      });
+    });
+    on('#btn-export-dl', function () {
+      U.telecharger('SuiviBadges_export_' + U.aujourdhui() + '.xlsx', ExportExcel.octets(DB.utilisateur()),
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    });
 
     var zone = el.querySelector('#liste-sauvegardes');
     if (zone) DB.listerSauvegardes().then(function (noms) {

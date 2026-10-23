@@ -21,6 +21,8 @@ Elke wijziging wordt meteen in `badges.json` bewaard (rechtsboven: « enregistr�
 - Het slot wordt elke minuut ververst en vervalt na 5 minuten (pc uit, Chrome gecrasht).
   Met « Réessayer » kan de tweede gebruiker overnemen zodra de databank vrij is;
   « Forcer la modification » alleen gebruiken als de eerste gebruiker zeker gestopt is.
+- Elke dag wordt bij het eerste openen ook **`SuiviBadges_export.xlsx`** overschreven: een leesbare Excel-export
+  van alle gegevens t.e.m. de vorige dag, om bij een panne op terug te vallen (eerst kopiëren!).
 - Elke dag wordt bij het eerste openen een kopie bewaard in `sauvegardes/badges_AAAA-MM-JJ.json`
   (laatste 30 dagen); terugzetten via *Base de données*.
 

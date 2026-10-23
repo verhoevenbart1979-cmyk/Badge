@@ -1,5 +1,20 @@
 # Notes de version — Suivi des badges
 
+## Version 4.4
+
+### Export Excel de secours
+
+- Chaque jour, à la **première ouverture** de l'application (en modification), le fichier
+  **SuiviBadges_export.xlsx** est remplacé dans le dossier de la base. Il contient toutes les données
+  enregistrées jusqu'à ce moment, donc jusqu'à la veille (les données ne changent que dans l'application).
+- Lisible avec Excel sans l'application : une feuille par aéroport (comme l'ancien classeur), la liste de tous
+  les badges et permis avec leur statut, le dernier passage, les personnes, les véhicules, les délais,
+  les projets et l'historique des imports du planning. Les dates sont de vraies dates Excel.
+- *Base de données* : date de la dernière mise à jour, bouton « Mettre à jour l'export maintenant »
+  et « Télécharger une copie Excel ».
+- Si le fichier est ouvert dans Excel au moment de l'export, un message le signale ; l'export est refait
+  à la prochaine ouverture.
+
 ## Version 4.3
 
 ### Suivi ISO de l'import du planning (au moins 1 fois par mois)

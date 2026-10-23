@@ -371,9 +371,29 @@ var DB = (function () {
       clearInterval(minuteur);
       minuteur = setInterval(battement, BATTEMENT_MS);
       return idbSet('dossier', h).then(function () {
-        if (!lectureSeule) return sauvegardeDuJour();
+        if (!lectureSeule) return sauvegardeDuJour().then(exportExcelDuJour);
       });
     }).then(notifier);
+  }
+
+  /* Export Excel de secours (js/export-excel.js) : une fois par jour, à la première ouverture,
+     donc avec les données jusqu'à la veille. Une erreur (fichier ouvert dans Excel…) ne bloque rien. */
+  function exportExcelDuJour() {
+    if (typeof ExportExcel === 'undefined') return Promise.resolve();
+    return ExportExcel.exportDuJour(dossier, utilisateur()).catch(function (e) {
+      console.warn('Export Excel impossible', e);
+      U.toast('L\'export Excel de secours n\'a pas pu être mis à jour (fichier ' + ExportExcel.NOM_FICHIER +
+        ' ouvert dans Excel ?). Il sera refait à la prochaine ouverture.', true);
+    });
+  }
+
+  function exporterExcelMaintenant() {
+    if (mode !== 'dossier' || typeof ExportExcel === 'undefined') return Promise.reject(new Error('Disponible seulement avec une base ouverte dans un dossier.'));
+    return ExportExcel.ecrire(dossier, utilisateur());
+  }
+
+  function dateExportExcel() {
+    return mode === 'dossier' && typeof ExportExcel !== 'undefined' ? ExportExcel.dateExport(dossier) : Promise.resolve(null);
   }
 
   function dernierDossier() { return dossiersSupportes ? idbGet('dossier') : Promise.resolve(null); }
@@ -505,6 +525,8 @@ var DB = (function () {
     reessayer: reessayer,
     ouvrirNavigateur: ouvrirNavigateur,
     listerSauvegardes: listerSauvegardes,
+    exporterExcelMaintenant: exporterExcelMaintenant,
+    dateExportExcel: dateExportExcel,
     lireSauvegarde: lireSauvegarde,
     normaliser: normaliser,
     enregistrer: enregistrer,
